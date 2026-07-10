@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>キャラ箱庭 — 大画面サイネージ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=M+PLUS+Rounded+1c:wght@700;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#0c1522;font-family:'M PLUS Rounded 1c',system-ui,sans-serif;-webkit-user-select:none;user-select:none}
+
+/* ---------- diorama (iframe, preloaded behind the cover) ---------- */
+#frame{position:fixed;inset:0;width:100%;height:100%;border:0;background:#0c1522}
+
+/* ---------- start cover ---------- */
+#cover{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5vh;cursor:pointer;background:linear-gradient(180deg,#8ed4ff 0%,#eaf8ff 33%,#9fd66b 34%,#7cbf4f 100%);transition:opacity .6s}
+#cover.hide{opacity:0;pointer-events:none}
+#cover .deco{position:absolute;font-size:clamp(40px,7vw,90px);opacity:.9;animation:floaty 3.2s ease-in-out infinite;filter:drop-shadow(0 6px 10px rgba(0,0,0,.15));pointer-events:none}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-18px)}}
+.title{font-family:'Baloo 2','M PLUS Rounded 1c',sans-serif;font-weight:800;font-size:clamp(52px,9vw,130px);color:#fff;-webkit-text-stroke:3px rgba(30,60,90,.35);text-shadow:0 8px 24px rgba(20,40,70,.35);letter-spacing:.02em;text-align:center;line-height:1.1}
+.title small{display:block;font-family:'M PLUS Rounded 1c',sans-serif;font-weight:900;font-size:clamp(18px,2.6vw,34px);-webkit-text-stroke:0;color:#2e5570;text-shadow:none;margin-top:1.2vh;letter-spacing:.25em}
+#startBtn{font-family:inherit;font-weight:900;font-size:clamp(26px,4vw,52px);color:#fff;background:linear-gradient(#ff9d4d,#f4772a);border:none;border-radius:999px;padding:3vh 7vw;cursor:pointer;box-shadow:0 10px 0 #c95c1a,0 22px 40px rgba(60,30,0,.3);animation:pulse 1.6s ease-in-out infinite;transition:transform .1s}
+#startBtn:active{transform:translateY(6px);box-shadow:0 4px 0 #c95c1a,0 10px 20px rgba(60,30,0,.3)}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+.note{font-size:clamp(13px,1.5vw,20px);font-weight:800;color:#2e5570;background:rgba(255,255,255,.65);padding:1vh 2.5vw;border-radius:999px}
+
+/* ---------- tiny exit hint after start ---------- */
+#exitHint{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:90;background:rgba(18,28,46,.65);color:#fff;font-size:12px;font-weight:800;padding:5px 14px;border-radius:999px;pointer-events:none;opacity:0;transition:opacity .5s}
+#exitHint.show{opacity:1}
+</style>
+</head>
+<body>
+<iframe id="frame" src="character_diorama.html" title="キャラ箱庭"></iframe>
+<script>
+// イベント用のDrive連携（GAS）URL。?gas=… を付けて開けば上書きも可能。
+const DEFAULT_GAS = 'https://script.google.com/macros/s/AKfycbwhwJmMef2jPxrVbstOFCFFWurCTIsv0W6UL-ozaC7xYPlAy5qXlHkyOSjGVM1w35s76A/exec';
+(() => {
+  const params = new URLSearchParams(window.location.search);
+  if (!params.get('gas') && DEFAULT_GAS) params.set('gas', DEFAULT_GAS);
+  document.getElementById('frame').src = 'character_diorama.html?' + params.toString();
+})();
+</script>
+
+<div id="cover">
+  <span class="deco" style="top:9%;left:9%">🍙</span>
+  <span class="deco" style="top:14%;right:11%;animation-delay:.5s">🎏</span>
+  <span class="deco" style="bottom:15%;left:14%;animation-delay:1s">🏁</span>
+  <span class="deco" style="bottom:11%;right:9%;animation-delay:1.4s">🌸</span>
+  <div class="title">キャラ箱庭<small>い わ く に</small></div>
+  <button id="startBtn">タップしてはじめる ▶</button>
+  <div class="note">画面いっぱいに表示します（もどるときは ESC キー）</div>
+</div>
+<div id="exitHint">全画面をやめる: ESC / もう一度全画面: このバーの下をダブルタップ</div>
+
+<script>
+'use strict';
+const cover = document.getElementById('cover');
+const exitHint = document.getElementById('exitHint');
+
+function goFullscreen() {
+  const el = document.documentElement;
+  try {
+    if (el.requestFullscreen) return el.requestFullscreen();
+    if (el.webkitRequestFullscreen) return el.webkitRequestFullscreen(); // 古いSafari系
+  } catch (e) { /* 全画面非対応環境でもそのまま表示 */ }
+  return Promise.resolve();
+}
+
+function start() {
+  Promise.resolve(goFullscreen()).catch(() => {}).then(() => {
+    cover.classList.add('hide');
+    exitHint.classList.add('show');
+    setTimeout(() => exitHint.classList.remove('show'), 6000);
+    setTimeout(() => cover.remove(), 800);
+  });
+}
+cover.addEventListener('pointerdown', start);
+
+// 全画面が解除されたら、ダブルタップ/ダブルクリックで復帰できるようにする
+let lastTap = 0;
+window.addEventListener('pointerdown', () => {
+  const now = Date.now();
+  if (now - lastTap < 350 && !document.fullscreenElement && !cover.isConnected) {
+    goFullscreen();
+  }
+  lastTap = now;
+});
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && !cover.isConnected) {
+    exitHint.classList.add('show');
+    setTimeout(() => exitHint.classList.remove('show'), 5000);
+  }
+});
+</script>
+</body>
+</html>

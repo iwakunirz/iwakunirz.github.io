@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>キャラ箱庭 — Character Diorama いわくに</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=M+PLUS+Rounded+1c:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#0c1522;font-family:'M PLUS Rounded 1c',system-ui,sans-serif;-webkit-user-select:none;user-select:none}
+#stage{position:fixed;inset:0;overflow:hidden;touch-action:manipulation;cursor:pointer}
+
+/* ---------- backdrop ---------- */
+#backdrop{position:absolute;inset:0}
+#backdrop .sky{position:absolute;top:0;left:0;right:0;height:34.5%;background:var(--sky-bg,linear-gradient(#8ed4ff,#eaf8ff))}
+#backdrop .art{position:absolute;top:0;left:0;right:0;height:34.5%}
+#backdrop .art svg{width:100%;height:100%;display:block}
+#backdrop .ground{position:absolute;top:34%;left:0;right:0;bottom:0;background:var(--ground-bg,linear-gradient(#9fd66b,#7cbf4f))}
+#backdrop.grass .ground::before{content:"";position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.12) 2px,transparent 2.6px),radial-gradient(rgba(30,80,20,.08) 2px,transparent 2.6px);background-size:110px 70px,90px 56px;background-position:0 0,45px 28px}
+#backdrop.sand .ground::before{content:"";position:absolute;inset:0;background-image:radial-gradient(rgba(150,115,60,.16) 1.6px,transparent 2.2px),radial-gradient(rgba(255,255,255,.25) 1.4px,transparent 2px);background-size:52px 38px,64px 44px;background-position:0 0,26px 19px}
+#backdrop .horizon{position:absolute;top:calc(34% - 3px);left:0;right:0;height:6px;background:var(--horizon,#6fb54a);opacity:.55;border-radius:3px}
+
+/* ---------- race layers ---------- */
+#raceGround{display:none;position:absolute;top:34%;bottom:0;left:0;right:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.10) 0 70px,rgba(0,0,0,.05) 70px 140px)}
+body.race #raceGround{display:block}
+#raceProps{position:absolute;inset:0;pointer-events:none}
+.rprop{position:absolute;left:0;top:0;will-change:transform}
+.gate{width:16px;background:repeating-linear-gradient(0deg,#26303c 0 14px,#f7f9fb 14px 28px);border-radius:8px;box-shadow:0 0 0 2px rgba(0,0,0,.18)}
+.gate .glabel{position:absolute;top:-32px;left:50%;transform:translateX(-50%);font-family:'Baloo 2','M PLUS Rounded 1c',sans-serif;font-weight:800;font-size:20px;color:#fff;text-shadow:0 2px 5px rgba(0,0,0,.55);letter-spacing:.04em}
+.marker{font-size:26px;text-align:center;line-height:1.05}
+.marker small{display:block;font-size:11px;font-weight:900;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.hazard{font-size:42px;filter:drop-shadow(0 4px 5px rgba(0,0,0,.25))}
+
+/* ---------- actors ---------- */
+#actors{position:absolute;inset:0;pointer-events:none}
+.actor{position:absolute;left:0;top:0;will-change:transform}
+.actor .shadow{position:absolute;left:0;top:0;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(ellipse at center,rgba(10,25,10,.32),rgba(0,0,0,0) 68%)}
+.actor .spriteWrap{position:absolute;left:0;top:0;transform:translate(-50%,-100%)}
+.actor .spriteInner{width:100%;height:100%;transform-origin:50% 100%;will-change:transform}
+.actor .card{width:100%;height:100%}
+.actor .card img{width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 4px 6px rgba(0,0,0,.16));-webkit-user-drag:none;pointer-events:none}
+.actor .peg{display:none}
+.actor.framed .card,body.force-frame .actor .card{background:linear-gradient(#ffffff,#eef3f7);border-radius:12px;padding:5px;box-shadow:0 5px 12px rgba(0,0,0,.25),inset 0 0 0 3px #fff}
+.actor.framed .peg,body.force-frame .actor .peg{display:block;width:44%;height:9px;margin:-1px auto 0;background:linear-gradient(#fff,#dde5ec);border-radius:0 0 8px 8px;box-shadow:0 4px 6px rgba(0,0,0,.22)}
+.nametag{position:absolute;left:0;top:9px;transform:translateX(-50%);background:rgba(255,255,255,.9);color:#324a60;font-size:13px;font-weight:800;padding:2px 11px;border-radius:999px;white-space:nowrap;box-shadow:0 2px 5px rgba(0,0,0,.18)}
+body.race .nametag{background:rgba(24,36,56,.86);color:#fff}
+.emo{position:absolute;left:0;top:0;pointer-events:none;transform:translate(-50%,0);animation:emoFloat 1.35s ease-out forwards;text-shadow:0 2px 4px rgba(0,0,0,.12)}
+@keyframes emoFloat{0%{opacity:0;transform:translate(-50%,8px) scale(.5)}18%{opacity:1;transform:translate(-50%,-10px) scale(1.15)}100%{opacity:0;transform:translate(-50%,-62px) scale(1)}}
+.prop{position:absolute;left:0;top:0;font-size:36px;pointer-events:none;filter:drop-shadow(0 4px 5px rgba(0,0,0,.22));will-change:transform}
+
+/* ---------- HUD ---------- */
+#lapHud{display:none;position:absolute;top:14px;left:50%;transform:translateX(-50%);align-items:center;gap:10px;background:rgba(18,28,46,.74);padding:8px 18px;border-radius:999px;color:#fff;z-index:2000;font-weight:900;font-size:14px;pointer-events:none}
+body.race #lapHud{display:flex}
+#lapBar{width:min(330px,36vw);height:10px;background:rgba(255,255,255,.22);border-radius:999px;overflow:hidden}
+#lapFill{height:100%;width:0;background:linear-gradient(90deg,#ffd54a,#ff8a3c);border-radius:999px}
+#lapPct{min-width:44px;text-align:right;font-variant-numeric:tabular-nums}
+#board{display:none;position:absolute;top:14px;left:14px;z-index:2000;background:rgba(18,28,46,.74);border-radius:14px;padding:10px 14px;color:#fff;min-width:158px;pointer-events:none}
+body.race #board{display:block}
+.brow{display:flex;align-items:center;gap:8px;padding:3px 0;font-weight:800;font-size:14px}
+.brow img{width:27px;height:27px;object-fit:contain;background:rgba(255,255,255,.88);border-radius:6px}
+.brow b{max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#crown{display:none;position:absolute;left:0;top:0;z-index:3000;font-size:30px;pointer-events:none;filter:drop-shadow(0 3px 5px rgba(0,0,0,.3));will-change:transform}
+#callout{position:absolute;top:23%;left:50%;z-index:3200;transform:translate(-50%,-50%) scale(0);opacity:0;font-family:'Baloo 2','M PLUS Rounded 1c',sans-serif;font-weight:800;font-size:clamp(28px,5vw,54px);color:#fff;-webkit-text-stroke:2px rgba(20,30,50,.5);text-shadow:0 4px 14px rgba(0,0,0,.38);pointer-events:none;white-space:nowrap}
+#callout.pop{animation:calloutPop 1.9s ease forwards}
+@keyframes calloutPop{0%{transform:translate(-50%,-50%) scale(0);opacity:0}12%{transform:translate(-50%,-50%) scale(1.14);opacity:1}20%{transform:translate(-50%,-50%) scale(1)}78%{transform:translate(-50%,-50%) scale(1);opacity:1}100%{transform:translate(-50%,-58%) scale(1.05);opacity:0}}
+#countdown{position:absolute;inset:0;z-index:3500;display:none;align-items:center;justify-content:center;pointer-events:none;font-family:'Baloo 2','M PLUS Rounded 1c',sans-serif;font-weight:800;font-size:clamp(80px,18vw,190px);color:#fff;-webkit-text-stroke:3px rgba(20,30,50,.5);text-shadow:0 8px 26px rgba(0,0,0,.4)}
+#countdown.pop{animation:cdPop .82s ease}
+@keyframes cdPop{0%{transform:scale(.3);opacity:0}30%{transform:scale(1.14);opacity:1}60%{transform:scale(1)}100%{transform:scale(1);opacity:1}}
+#results{display:none;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:4000;background:rgba(15,25,43,.94);color:#fff;padding:22px 26px;border-radius:20px;min-width:min(430px,88vw);max-height:82vh;overflow:auto;box-shadow:0 22px 60px rgba(0,0,0,.5)}
+#results h2{font-family:'Baloo 2','M PLUS Rounded 1c',sans-serif;text-align:center;margin-bottom:10px;font-size:24px}
+.rrow{display:flex;align-items:center;gap:10px;padding:6px 4px;border-bottom:1px dashed rgba(255,255,255,.16);font-weight:800}
+.rrow img{width:34px;height:34px;object-fit:contain;background:rgba(255,255,255,.9);border-radius:8px}
+.rm{width:48px;text-align:center;font-size:19px}
+.rn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rt{font-variant-numeric:tabular-nums;color:#ffd54a}
+.rbtns{display:flex;gap:10px;margin-top:16px;justify-content:center}
+.rbtns button{font-family:inherit;font-weight:900;font-size:15px;color:#fff;background:linear-gradient(#4fa8ff,#2f7fe0);border:none;border-radius:999px;padding:10px 22px;cursor:pointer}
+.rbtns button.ghost{background:rgba(255,255,255,.14)}
+
+/* ---------- chrome ---------- */
+.brand{position:absolute;top:12px;right:18px;z-index:2000;font-family:'Baloo 2','M PLUS Rounded 1c',sans-serif;font-weight:800;font-size:22px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.35);pointer-events:none}
+.brand span{font-size:13px;font-family:'M PLUS Rounded 1c',sans-serif;opacity:.92;margin-left:6px}
+.hint{position:absolute;bottom:118px;left:50%;transform:translateX(-50%);z-index:1900;background:rgba(18,28,46,.6);color:#fff;font-size:13px;font-weight:800;padding:6px 16px;border-radius:999px;pointer-events:none;transition:opacity .4s;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis}
+.dock{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:5000;display:flex;flex-direction:column;gap:8px;background:rgba(14,24,42,.84);backdrop-filter:blur(8px);padding:12px 16px;border-radius:18px;max-width:min(960px,95vw);transition:opacity .5s,transform .5s;color:#dfe9f5;cursor:default}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center}
+.lbl{font-size:12px;font-weight:900;opacity:.7;min-width:32px;text-align:right}
+.dock button{font-family:inherit;font-weight:800;font-size:13px;color:#e8f1fb;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:7px 15px;cursor:pointer;transition:background .15s}
+.dock button:hover{background:rgba(255,255,255,.22)}
+.dock button.on{background:linear-gradient(#4fa8ff,#2f7fe0);border-color:transparent}
+#count{font-weight:900;font-size:13px;background:rgba(255,255,255,.08);padding:6px 13px;border-radius:999px;font-variant-numeric:tabular-nums}
+.drive input[type=text]{width:min(330px,46vw);padding:7px 13px;border-radius:999px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;font-family:inherit;font-size:12px;outline:none}
+.drive input[type=text]::placeholder{color:rgba(255,255,255,.45)}
+.drive label{font-size:12px;font-weight:800;display:flex;gap:5px;align-items:center;cursor:pointer}
+body.idle .dock,body.idle .hint{opacity:0;pointer-events:none}
+body.idle .dock{transform:translateX(-50%) translateY(18px)}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="backdrop" class="grass">
+    <div class="sky"></div>
+    <div class="art" id="art"></div>
+    <div class="ground"></div>
+    <div class="horizon"></div>
+  </div>
+  <div id="raceGround"></div>
+  <div id="raceProps"></div>
+  <div id="actors"></div>
+
+  <div id="lapHud">🏁<div id="lapBar"><div id="lapFill"></div></div><span id="lapPct">0%</span></div>
+  <div id="board"></div>
+  <div id="crown">👑</div>
+  <div id="callout"></div>
+  <div id="countdown"></div>
+  <div id="results"></div>
+
+  <div class="brand">キャラ箱庭 <span>いわくに</span></div>
+  <div class="hint" id="hint">地面タップでごはん🍙 / キャラタップでよろこぶ❤️</div>
+
+  <div class="dock" id="dock">
+    <div class="row" id="modeSeg">
+      <button data-mode="mingle" class="on">交流モード</button>
+      <button data-mode="race">レースモード</button>
+      <span id="count">0/12体</span>
+      <button id="btnAdd">画像を追加</button>
+      <button id="btnSample">サンプル+</button>
+      <button id="btnClear">全消去</button>
+      <button id="btnFull">全画面</button>
+    </div>
+    <div class="row" id="sceneSeg">
+      <span class="lbl">背景</span>
+      <button data-scene="kintai" class="on">錦帯橋</button>
+      <button data-scene="castle">岩国城</button>
+      <button data-scene="yubeach">由宇ビーチ</button>
+      <button data-scene="plaza">広場</button>
+      <span class="lbl">表示</span>
+      <button id="styleCut" class="on">切り抜き</button>
+      <button id="styleFrame">アクスタ風</button>
+    </div>
+    <div class="row drive">
+      <span class="lbl">Drive</span>
+      <input type="text" id="driveUrl" placeholder="GASウェブアプリURL（…/exec）">
+      <button id="btnDrive">読込</button>
+      <label><input type="checkbox" id="autoRefresh">自動更新15秒</label>
+    </div>
+  </div>
+</div>
+<input type="file" id="filePick" accept="image/*" multiple hidden>
+
+<script>
+'use strict';
+/* =====================================================================
+   キャラ箱庭 (Character Diorama) — 会場サイネージ用インタラクティブビューアー
+   単一HTML / バニラJS / Web Storage 不使用（状態は全てメモリ）
+   ===================================================================== */
+
+// ---------- utilities ----------
+const $ = s => document.querySelector(s);
+const lerp = (a, b, t) => a + (b - a) * t;
+const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = arr => arr[(Math.random() * arr.length) | 0];
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+const stage = $('#stage');
+const actorsEl = $('#actors');
+const artEl = $('#art');
+const backdropEl = $('#backdrop');
+
+let SW = window.innerWidth, SH = window.innerHeight;
+function resize() {
+  const r = stage.getBoundingClientRect();
+  SW = r.width; SH = r.height;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ---------- projection (pseudo-3D ground) ----------
+const FIELD = { top: 0.34, bottom: 0.965, backInset: 0.17, frontInset: 0.015 };
+function project(gx, gy) {
+  const inset = lerp(FIELD.backInset, FIELD.frontInset, gy);
+  const sx = SW * inset + gx * (SW * (1 - 2 * inset));
+  const sy = SH * FIELD.top + gy * SH * (FIELD.bottom - FIELD.top);
+  const scale = lerp(0.52, 1.16, gy);
+  return { sx, sy, scale };
+}
+function screenToWorld(sx, sy) {
+  const gy = clamp((sy - SH * FIELD.top) / (SH * (FIELD.bottom - FIELD.top)), 0, 1);
+  const inset = lerp(FIELD.backInset, FIELD.frontInset, gy);
+  const gx = clamp((sx - SW * inset) / (SW * (1 - 2 * inset)), 0, 1);
+  return { gx, gy };
+}
+
+// ---------- scenes (岩国ご当地 / 手描きSVG) ----------
+const SVG_KINTAI = `<svg viewBox="0 0 1200 400" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
+<path d="M0,352 L100,238 200,330 320,196 440,342 550,268 660,348 L660,400 0,400 Z" fill="#7fae72" opacity="0.75"/>
+<path d="M540,352 L660,214 780,322 910,188 1040,332 1130,258 1200,330 L1200,400 540,400 Z" fill="#68a05e" opacity="0.85"/>
+<rect x="0" y="322" width="1200" height="78" fill="#79c4ec"/>
+<path d="M0,338 q30,-7 60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0" stroke="#ffffff" stroke-width="3" fill="none" opacity="0.4"/>
+<path d="M0,368 q35,-6 70,0 t70,0 t70,0 t70,0 t70,0 t70,0 t70,0 t70,0 t70,0 t70,0 t70,0 t70,0 t70,0 t70,0 t70,0 t70,0 t70,0" stroke="#ffffff" stroke-width="2.4" fill="none" opacity="0.28"/>
+<g fill="#a9b2b8" stroke="#7e888f" stroke-width="3">
+<rect x="135" y="316" width="30" height="66" rx="6"/><rect x="315" y="316" width="30" height="66" rx="6"/><rect x="495" y="316" width="30" height="66" rx="6"/><rect x="675" y="316" width="30" height="66" rx="6"/><rect x="855" y="316" width="30" height="66" rx="6"/><rect x="1035" y="316" width="30" height="66" rx="6"/>
+</g>
+<path d="M150,324 Q240,230 330,324 Q420,230 510,324 Q600,230 690,324 Q780,230 870,324 Q960,230 1050,324" fill="none" stroke="#8a5a33" stroke-width="14" stroke-linecap="round"/>
+<path d="M150,315 Q240,221 330,315 Q420,221 510,315 Q600,221 690,315 Q780,221 870,315 Q960,221 1050,315" fill="none" stroke="#c08b57" stroke-width="6" stroke-linecap="round"/>
+</svg>`;
+
+const SVG_CASTLE = `<svg viewBox="0 0 1200 400" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
+<path d="M60,400 Q600,20 1140,400 Z" fill="#5f9e57"/>
+<path d="M260,400 Q600,130 940,400 Z" fill="#6fae64"/>
+<path d="M420,400 Q600,230 780,400 Z" fill="#7bb96f"/>
+<rect x="524" y="336" width="152" height="30" rx="4" fill="#9aa6ad" stroke="#7e8a92" stroke-width="3"/>
+<rect x="530" y="300" width="140" height="38" fill="#ffffff" stroke="#c6d2da" stroke-width="3"/>
+<rect x="556" y="310" width="20" height="16" rx="2" fill="#3a4a63"/><rect x="624" y="310" width="20" height="16" rx="2" fill="#3a4a63"/>
+<path d="M506,302 Q600,262 694,302 Q600,282 506,302 Z" fill="#2d3f66"/>
+<rect x="548" y="266" width="104" height="36" fill="#ffffff" stroke="#c6d2da" stroke-width="3"/>
+<rect x="588" y="274" width="24" height="16" rx="2" fill="#3a4a63"/>
+<path d="M528,268 Q600,232 672,268 Q600,250 528,268 Z" fill="#2d3f66"/>
+<rect x="566" y="232" width="68" height="36" fill="#ffffff" stroke="#c6d2da" stroke-width="3"/>
+<rect x="590" y="240" width="20" height="14" rx="2" fill="#3a4a63"/>
+<path d="M546,234 Q600,196 654,234 Q600,214 546,234 Z" fill="#2d3f66"/>
+<path d="M560,209 q6,-14 14,0 q-8,6 -14,0 Z" fill="#e6b84a"/>
+<path d="M640,209 q-6,-14 -14,0 q8,6 14,0 Z" fill="#e6b84a"/>
+</svg>`;
+
+const SVG_BEACH = `<svg viewBox="0 0 1200 400" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
+<defs><linearGradient id="seaG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fb4e6"/><stop offset="1" stop-color="#93dcf6"/></linearGradient></defs>
+<rect x="0" y="168" width="1200" height="232" fill="url(#seaG)"/>
+<ellipse cx="210" cy="170" rx="130" ry="28" fill="#4e7f8f"/>
+<ellipse cx="690" cy="174" rx="95" ry="20" fill="#5a8b99"/>
+<ellipse cx="1060" cy="168" rx="150" ry="32" fill="#47788a"/>
+<path d="M0,232 q40,-9 80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0" stroke="#ffffff" stroke-width="3" fill="none" opacity="0.42"/>
+<path d="M0,288 q45,-8 90,0 t90,0 t90,0 t90,0 t90,0 t90,0 t90,0 t90,0 t90,0 t90,0 t90,0 t90,0 t90,0" stroke="#ffffff" stroke-width="3" fill="none" opacity="0.36"/>
+<path d="M0,338 q50,-8 100,0 t100,0 t100,0 t100,0 t100,0 t100,0 t100,0 t100,0 t100,0 t100,0 t100,0 t100,0" stroke="#ffffff" stroke-width="3.4" fill="none" opacity="0.5"/>
+<path d="M0,384 q42,-16 84,0 t84,0 t84,0 t84,0 t84,0 t84,0 t84,0 t84,0 t84,0 t84,0 t84,0 t84,0 t84,0 t84,0 L1200,400 L0,400 Z" fill="#ffffff" opacity="0.9"/>
+</svg>`;
+
+const SVG_PLAZA = `<svg viewBox="0 0 1200 400" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
+<ellipse cx="230" cy="410" rx="440" ry="150" fill="#79b968"/>
+<ellipse cx="970" cy="420" rx="480" ry="170" fill="#6cae5c"/>
+<ellipse cx="600" cy="440" rx="380" ry="130" fill="#83c46f"/>
+<ellipse cx="180" cy="330" rx="52" ry="34" fill="#4e8a46"/><rect x="172" y="352" width="16" height="42" rx="6" fill="#7a5533"/>
+<ellipse cx="1020" cy="322" rx="60" ry="38" fill="#4e8a46"/><rect x="1012" y="348" width="16" height="46" rx="6" fill="#7a5533"/>
+<g fill="#d43c34">
+<rect x="518" y="152" width="24" height="248" rx="7"/>
+<rect x="658" y="152" width="24" height="248" rx="7"/>
+<path d="M468,116 h264 q12,0 10,14 l-2,12 h-280 l-2,-12 q-2,-14 10,-14 Z"/>
+<rect x="486" y="148" width="228" height="14" rx="6"/>
+<rect x="500" y="198" width="200" height="16" rx="6"/>
+</g>
+<rect x="590" y="162" width="20" height="40" rx="4" fill="#b8302a"/>
+</svg>`;
+
+const SCENES = {
+  kintai:  { sky: 'linear-gradient(#8ed4ff,#eaf8ff)', ground: 'linear-gradient(#9fd66b,#7cbf4f)', horizon: '#6fb54a', cls: 'grass', art: SVG_KINTAI },
+  castle:  { sky: 'linear-gradient(#9fd8ff,#f0f9ff)', ground: 'linear-gradient(#a3d977,#7fbf55)', horizon: '#71b04c', cls: 'grass', art: SVG_CASTLE },
+  yubeach: { sky: 'linear-gradient(#7fd0ff,#dff4ff)', ground: 'linear-gradient(#f3dfa6,#e6c684)', horizon: '#d9bd83', cls: 'sand',  art: SVG_BEACH },
+  plaza:   { sky: 'linear-gradient(#a5dcff,#f2fbff)', ground: 'linear-gradient(#a8dd7d,#83c25a)', horizon: '#77b551', cls: 'grass', art: SVG_PLAZA },
+};
+function setScene(key) {
+  const s = SCENES[key];
+  if (!s) return;
+  backdropEl.style.setProperty('--sky-bg', s.sky);
+  backdropEl.style.setProperty('--ground-bg', s.ground);
+  backdropEl.style.setProperty('--horizon', s.horizon);
+  backdropEl.className = s.cls;
+  artEl.innerHTML = s.art;
+  document.querySelectorAll('#sceneSeg [data-scene]').forEach(b => b.classList.toggle('on', b.dataset.scene === key));
+}
+
+// ---------- white-background removal (flood fill from edges) ----------
+function whiteCutout(img) {
+  const nw = img.naturalWidth, nh = img.naturalHeight;
+  if (!nw || !nh) return null;
+  // 大きな生成画像は処理用に縮小（表示品質は十分・メモリ節約）
+  const k = Math.min(1, 640 / Math.max(nw, nh));
+  const w = Math.max(1, Math.round(nw * k)), h = Math.max(1, Math.round(nh * k));
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0, w, h);
+  let d;
+  try { d = ctx.getImageData(0, 0, w, h); } catch (e) { return null; } // CORS-tainted
+  const px = d.data;
+  const visited = new Uint8Array(w * h);
+  const stack = [];
+  // 閾値64: AI生成画像のクリーム色のもや・薄い影も背景として除去（実画像でチューニング済み）
+  const THR = 64;
+  const whiteness = i => { const o = i * 4; return Math.max(255 - px[o], 255 - px[o + 1], 255 - px[o + 2]); };
+  const isWhite = i => px[i * 4 + 3] > 10 && whiteness(i) < THR;
+  const push = i => { if (!visited[i] && isWhite(i)) { visited[i] = 1; stack.push(i); } };
+  for (let x = 0; x < w; x++) { push(x); push((h - 1) * w + x); }
+  for (let y = 0; y < h; y++) { push(y * w); push(y * w + w - 1); }
+  while (stack.length) {
+    const i = stack.pop();
+    px[i * 4 + 3] = 0;
+    const cx = i % w, cy = (i / w) | 0;
+    if (cx > 0) push(i - 1);
+    if (cx < w - 1) push(i + 1);
+    if (cy > 0) push(i - w);
+    if (cy < h - 1) push(i + w);
+  }
+  // フェザリング: 除去領域に接する薄い縁を半透明にして白フチを消す
+  const T2 = THR * 1.75;
+  for (let i = 0; i < w * h; i++) {
+    if (visited[i] || px[i * 4 + 3] === 0) continue;
+    const cx = i % w, cy = (i / w) | 0;
+    const nearCut =
+      (cx > 0 && visited[i - 1]) || (cx < w - 1 && visited[i + 1]) ||
+      (cy > 0 && visited[i - w]) || (cy < h - 1 && visited[i + w]);
+    if (!nearCut) continue;
+    const v = whiteness(i);
+    if (v < T2) {
+      px[i * 4 + 3] = clamp(Math.round(255 * (v - THR) / (T2 - THR)), 0, 255);
+    }
+  }
+  ctx.putImageData(d, 0, 0);
+  try { return c.toDataURL('image/png'); } catch (e) { return null; }
+}
+
+// ---------- built-in mascot SVG (seeds & samples) ----------
+function mascotSVG(main, dark, belly) {
+  const s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 240">
+<g stroke="${dark}" stroke-width="7" stroke-linejoin="round">
+<ellipse cx="66" cy="52" rx="22" ry="32" fill="${main}"/>
+<ellipse cx="154" cy="52" rx="22" ry="32" fill="${main}"/>
+<ellipse cx="110" cy="140" rx="80" ry="90" fill="${main}"/>
+</g>
+<ellipse cx="110" cy="172" rx="48" ry="52" fill="${belly}"/>
+<ellipse cx="70" cy="226" rx="25" ry="12" fill="${dark}"/>
+<ellipse cx="150" cy="226" rx="25" ry="12" fill="${dark}"/>
+<circle cx="84" cy="112" r="9.5" fill="#25313d"/><circle cx="87" cy="109" r="3.2" fill="#ffffff"/>
+<circle cx="136" cy="112" r="9.5" fill="#25313d"/><circle cx="139" cy="109" r="3.2" fill="#ffffff"/>
+<circle cx="63" cy="134" r="10" fill="#ff9db0" opacity="0.75"/>
+<circle cx="157" cy="134" r="10" fill="#ff9db0" opacity="0.75"/>
+<path d="M96,132 Q110,145 124,132" stroke="#5a3b2e" stroke-width="5.5" fill="none" stroke-linecap="round"/>
+</svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
+}
+const FALLBACK_IMG = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 220"><ellipse cx="100" cy="122" rx="70" ry="86" fill="#c9d4de"/><circle cx="78" cy="102" r="8" fill="#5a6a78"/><circle cx="122" cy="102" r="8" fill="#5a6a78"/><path d="M86,130 Q100,140 114,130" stroke="#5a6a78" stroke-width="5" fill="none" stroke-linecap="round"/></svg>');
+
+const SEEDS = [
+  { name: 'あお', id: 'seed-ao',   url: mascotSVG('#7ec3f0', '#3d7fb8', '#eaf7ff'), transparent: true },
+  { name: 'あか', id: 'seed-aka',  url: mascotSVG('#f28b8b', '#c0504d', '#ffe9e3'), transparent: true },
+  { name: 'しろ', id: 'seed-shiro', url: mascotSVG('#ffffff', '#9aa7b5', '#f2f6f9'), transparent: true },
+];
+const SAMPLE_PALETTES = [
+  ['#ffd27f', '#c98f3a', '#fff2d8'], ['#a4e3a1', '#5da45c', '#eaffe8'],
+  ['#d9b8f5', '#9265c9', '#f6ecff'], ['#ffb3c7', '#d1607f', '#ffe8ef'],
+  ['#9fd8ff', '#4a8fc7', '#eaf6ff'], ['#ffe28a', '#d1a23a', '#fff7dd'],
+];
+const SAMPLE_NAMES = ['もみじ', 'れんこん', 'あゆ', 'こい', 'しろへび', 'だんご', 'みかん', 'ひなた', 'そら', 'うぐいす'];
+let sampleN = 0;
+
+// ---------- actors ----------
+const MAX_CHARS = 12;
+const actors = [];
+const seenIds = new Set();
+let uid = 0;
+
+const FOODS = ['🍙', '🍡', '🍦', '🍎', '🍉', '🍓', '🍌', '🧁', '🍪', '🥕', '🍇', '🌰'];
+const CHAT_EMOJI = ['❤️', '♪', '！', '😊', '✨', '⭐', '🎵', '😆'];
+const IDLE_EMOJI = ['♪', '😊', '✨', '🎵', '☀️', '❓'];
+
+function updateCount() { $('#count').textContent = actors.length + '/12体'; }
+
+function makeActor(name, id) {
+  const el = document.createElement('div');
+  el.className = 'actor';
+  el.innerHTML = '<div class="shadow"></div><div class="spriteWrap"><div class="spriteInner"><div class="card"><img alt=""></div><div class="peg"></div></div></div><div class="nametag"></div>';
+  actorsEl.appendChild(el);
+  const a = {
+    id, name, el,
+    shadow: el.querySelector('.shadow'),
+    wrap: el.querySelector('.spriteWrap'),
+    inner: el.querySelector('.spriteInner'),
+    img: el.querySelector('img'),
+    tag: el.querySelector('.nametag'),
+    gx: rand(0.15, 0.85), gy: rand(0.35, 0.9),
+    tgx: 0.5, tgy: 0.6,
+    speed: rand(0.05, 0.1),
+    facing: Math.random() < 0.5 ? -1 : 1,
+    phase: rand(0, 6.28), seed: rand(0, 999),
+    baseH: rand(112, 138), aspect: 0.85,
+    state: 'pause', stateT: rand(0.2, 1.2),
+    moving: 0, movingT: 0,
+    cool: 0, emoT: rand(3, 9), chatT: 0, fleeT: 0, zzT: 0,
+    partner: null, target: null, ready: false, processed: false,
+    // race fields
+    dist: 0, lane: 0, raceBase: 0, formFreq: 1, formPhase: 0,
+    boost: 0, turbo: 0, stumble: 0, slip: 0, jumpT: 0,
+    finished: false, rank: 0, time: 0, speedVis: 0, sxOverride: null,
+    sx: 0, sy: 0, scale: 1, H: 100,
+  };
+  a.tag.textContent = name;
+  pickTarget(a);
+  return a;
+}
+
+function loadActorImage(a, item) {
+  // GASのbase64プロキシ経由: data:URLを取得してから読み込む（CORSを回避して白抜き可能に）
+  if (item.b64) {
+    fetch(item.url, { cache: 'no-store' })
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+      .then(t => {
+        if (!/^data:image\//.test(t)) throw new Error('bad payload');
+        loadActorImage(a, { name: item.name, url: t });
+      })
+      .catch(() => {
+        // フォールバック: サムネイルURL（白抜き不可ならアクスタ枠になる）
+        loadActorImage(a, { name: item.name, url: item.thumb || FALLBACK_IMG, transparent: !item.thumb });
+      });
+    return;
+  }
+  const url = item.url;
+  a.img.onload = () => {
+    a.aspect = clamp(a.img.naturalWidth / Math.max(1, a.img.naturalHeight), 0.3, 2.2);
+    a.ready = true;
+    if (a.processed || item.transparent) { a.processed = true; return; }
+    a.processed = true;
+    if (url.startsWith('data:') || url.startsWith('blob:')) {
+      const cut = whiteCutout(a.img);
+      if (cut) a.img.src = cut;
+      else a.el.classList.add('framed');
+    } else {
+      probeCutout(a, url); // remote: display as-is now, swap to cutout if CORS allows
+    }
+  };
+  a.img.onerror = () => {
+    a.img.onerror = null;
+    a.processed = true; a.ready = true; a.aspect = 0.9;
+    a.el.classList.add('framed');
+    a.img.src = FALLBACK_IMG;
+  };
+  a.img.src = url;
+}
+
+function probeCutout(a, url) {
+  const p = new Image();
+  p.crossOrigin = 'anonymous';
+  p.onload = () => {
+    const cut = whiteCutout(p);
+    if (cut) { a.img.src = cut; a.el.classList.remove('framed'); }
+    else a.el.classList.add('framed');
+  };
+  p.onerror = () => a.el.classList.add('framed');
+  p.src = url + (url.includes('?') ? '&' : '?') + 'corsprobe=1';
+}
+
+function addCharacter(item) {
+  if (!item || !item.url) return;
+  const id = String(item.id || item.url || ('c' + (++uid)));
+  if (actors.some(a => a.id === id)) return;
+  seenIds.add(id);
+  const a = makeActor(item.name || 'キャラ', id);
+  actors.push(a);
+  while (actors.length > MAX_CHARS) removeActor(actors[0]); // FIFO: keep newest 12
+  if (mode === 'race') { // joins mid-race: wait at the sideline
+    a.gx = rand(0.03, 0.1); a.gy = rand(0.92, 0.97); a.state = 'pause'; a.stateT = 9999;
+  }
+  loadActorImage(a, item);
+  updateCount();
+}
+function addCharacters(list) { (list || []).forEach(addCharacter); }
+
+function removeActor(a) {
+  const i = actors.indexOf(a);
+  if (i >= 0) actors.splice(i, 1);
+  const ri = racers.indexOf(a);
+  if (ri >= 0) racers.splice(ri, 1);
+  if (a.partner) { a.partner.partner = null; a.partner = null; }
+  if (a.target) { a.target.claimed = null; a.target = null; }
+  a.el.remove();
+  updateCount();
+}
+function clearAll() {
+  actors.slice().forEach(removeActor);
+  seenIds.clear();
+  props.slice().forEach(removeProp);
+}
+
+// ---------- placement & procedural animation ----------
+function place(a) {
+  const p = project(a.gx, a.gy);
+  const sx = (a.sxOverride != null) ? a.sxOverride : p.sx;
+  a.sx = sx; a.sy = p.sy; a.scale = p.scale;
+  a.el.style.transform = 'translate(' + sx + 'px,' + p.sy + 'px)';
+  a.el.style.zIndex = String(Math.round(a.gy * 1000));
+  const H = a.baseH * p.scale;
+  a.H = H;
+  a.wrap.style.height = H + 'px';
+  a.wrap.style.width = (H * a.aspect) + 'px';
+  a.tag.style.display = (p.scale < 0.62) ? 'none' : 'block';
+}
+
+function animateActor(a, dt, now) {
+  if (mode === 'mingle') mingleStep(a, dt, now);
+  a.moving += (a.movingT - a.moving) * Math.min(1, dt * 8);
+  place(a);
+  const scale = a.scale;
+  let bob = 0, extra = 0, tilt = 0, sqx = 1, sqy = 1;
+
+  if (mode === 'race' && a.state === 'race') {
+    if (a.finished) {
+      const t = now / 140 + a.seed;
+      bob = Math.abs(Math.sin(t)) * 12 * scale;
+      tilt = Math.sin(t) * 8;
+    } else if (raceOn) {
+      a.phase += dt * (4 + a.speedVis * 0.55);
+      const hop = Math.abs(Math.sin(a.phase));
+      bob = hop * 11 * scale;
+      sqy = 1 - (1 - hop) * 0.12;
+      sqx = 1 + (1 - hop) * 0.10;
+      tilt = 4 + Math.sin(a.phase * 2) * 3;
+      if (a.jumpT > 0) { const pr = 1 - a.jumpT / 0.55; extra = Math.sin(Math.PI * pr) * 56 * scale; }
+      if (a.slip > 0) tilt = Math.sin(now / 40) * 16;
+      if (a.stumble > 0) { tilt = -10; sqy *= 0.92; }
+    } else {
+      sqy = 1 + Math.sin(now / 650 + a.seed) * 0.015; // grid idle breathing
+    }
+  } else {
+    a.phase += dt * 10.5 * (0.2 + a.moving);
+    const hop = Math.abs(Math.sin(a.phase));
+    bob = hop * 11 * scale * a.moving;
+    sqy = 1 - (1 - hop) * 0.12 * a.moving;
+    sqx = 1 + (1 - hop) * 0.10 * a.moving;
+    tilt = (Math.sin(a.phase * 2) * 3 + 2) * a.moving * a.facing;
+    switch (a.state) {
+      case 'eat': {
+        const w = Math.sin(now / 70);
+        bob = Math.abs(w) * 3 * scale; sqy = 1 + w * 0.05; sqx = 1 - w * 0.04;
+        break;
+      }
+      case 'dance': {
+        const t = now / 140 + a.seed;
+        bob = Math.abs(Math.sin(t)) * 16 * scale;
+        tilt = Math.sin(t) * 10;
+        sqy = 1 - (1 - Math.abs(Math.sin(t))) * 0.1;
+        break;
+      }
+      case 'nap': {
+        bob = 0; tilt = 10;
+        sqy = 1 + Math.sin(now / 900 + a.seed) * 0.02;
+        break;
+      }
+      case 'chat': {
+        bob = Math.abs(Math.sin(now / 260 + a.seed)) * 4 * scale;
+        break;
+      }
+      default:
+        if (a.moving < 0.05) sqy = 1 + Math.sin(now / 650 + a.seed) * 0.015; // breathing
+    }
+  }
+
+  a.inner.style.transform = 'translateY(' + (-(bob + extra)) + 'px) rotate(' + tilt + 'deg) scale(' + (a.facing * sqx) + ',' + sqy + ')';
+
+  const lift = (bob + extra) / Math.max(0.01, scale);
+  const shScale = clamp(1 - lift * 0.012, 0.55, 1);
+  const sw = a.H * a.aspect * 0.85 * shScale;
+  a.shadow.style.width = sw + 'px';
+  a.shadow.style.height = (sw * 0.3) + 'px';
+  a.shadow.style.opacity = String(0.55 * clamp(1 - lift * 0.02, 0.35, 1));
+}
+
+// ---------- emoji bubbles ----------
+function spawnEmoji(a, ch) {
+  if (!a || !a.el.isConnected) return;
+  const el = document.createElement('div');
+  el.className = 'emo';
+  el.textContent = ch;
+  el.style.left = a.sx + 'px';
+  el.style.top = (a.sy - a.H - 6) + 'px';
+  el.style.fontSize = (18 + 14 * a.scale) + 'px';
+  el.style.zIndex = String(Math.round(a.gy * 1000) + 2);
+  actorsEl.appendChild(el);
+  el.addEventListener('animationend', () => el.remove());
+  setTimeout(() => el.remove(), 2000);
+}
+
+// ---------- props (treats) ----------
+const props = [];
+function dropTreat(gx, gy, emoji) {
+  const el = document.createElement('div');
+  el.className = 'prop';
+  el.textContent = emoji;
+  actorsEl.appendChild(el);
+  const p = { gx, gy, el, emoji, born: performance.now(), dead: false, claimed: null };
+  props.push(p);
+  return p;
+}
+function removeProp(p) {
+  p.dead = true;
+  p.el.remove();
+  const i = props.indexOf(p);
+  if (i >= 0) props.splice(i, 1);
+  if (p.claimed && p.claimed.target === p) { p.claimed.target = null; }
+}
+function assignTreat(p) {
+  let best = null, bd = 1e9;
+  for (const a of actors) {
+    if (a.state !== 'walk' && a.state !== 'pause') continue;
+    if (a.target) continue;
+    const d = Math.hypot(a.gx - p.gx, a.gy - p.gy);
+    if (d < bd) { bd = d; best = a; }
+  }
+  if (best) { best.state = 'seek'; best.target = p; p.claimed = best; }
+}
+function drawProps() {
+  for (const p of props) {
+    const pr = project(p.gx, p.gy);
+    p.el.style.transform = 'translate(' + pr.sx + 'px,' + pr.sy + 'px) translate(-50%,-100%) scale(' + pr.scale + ')';
+    p.el.style.zIndex = String(Math.round(p.gy * 1000) - 1);
+  }
+}
+
+// ---------- mingle state machine ----------
+function pickTarget(a) {
+  a.tgx = rand(0.06, 0.94);
+  a.tgy = rand(0.12, 0.97);
+}
+function moveToward(a, dt, mult) {
+  const dx = a.tgx - a.gx, dy = a.tgy - a.gy;
+  const d = Math.hypot(dx, dy);
+  if (d < 0.012) { a.movingT = 0; return true; }
+  const step = Math.min(d, a.speed * (mult || 1) * dt);
+  a.gx += dx / d * step;
+  a.gy += dy / d * step;
+  if (dx > 0.002) a.facing = 1; else if (dx < -0.002) a.facing = -1;
+  a.movingT = 1;
+  return false;
+}
+function endPlay(a) {
+  a.partner = null;
+  a.state = 'pause';
+  a.stateT = rand(0.4, 1.2);
+  a.cool = performance.now() + 3000;
+  a.movingT = 0;
+}
+
+function mingleStep(a, dt, now) {
+  a.stateT -= dt;
+  switch (a.state) {
+    case 'walk': {
+      if (moveToward(a, dt, 1)) { a.state = 'pause'; a.stateT = rand(0.6, 2.2); }
+      a.emoT -= dt;
+      if (a.emoT <= 0) { a.emoT = rand(7, 15); if (Math.random() < 0.5) spawnEmoji(a, pick(IDLE_EMOJI)); }
+      break;
+    }
+    case 'pause': {
+      a.movingT = 0;
+      if (a.stateT <= 0) { pickTarget(a); a.state = 'walk'; }
+      break;
+    }
+    case 'chat': {
+      a.movingT = 0;
+      if (!a.partner || a.partner.state !== 'chat') { a.partner = null; a.state = 'pause'; a.stateT = 0.4; break; }
+      a.chatT -= dt;
+      if (a.chatT <= 0) { a.chatT = 1.15; spawnEmoji(a, pick(CHAT_EMOJI)); }
+      if (a.stateT <= 0) {
+        a.cool = now + 4000;
+        a.partner = null;
+        a.state = 'pause'; a.stateT = rand(0.5, 1.5);
+      }
+      break;
+    }
+    case 'seek': {
+      const t = a.target;
+      if (!t || t.dead) { a.target = null; a.state = 'pause'; a.stateT = 0.4; break; }
+      a.tgx = t.gx; a.tgy = t.gy;
+      moveToward(a, dt, 1.35);
+      if (Math.hypot(a.gx - t.gx, a.gy - t.gy) < 0.03) {
+        removeProp(t);
+        a.target = null;
+        a.state = 'eat'; a.stateT = rand(1.2, 1.8);
+        spawnEmoji(a, '😋');
+        setTimeout(() => { if (a.state === 'eat') spawnEmoji(a, '❤️'); }, 500);
+      }
+      break;
+    }
+    case 'eat': {
+      a.movingT = 0;
+      if (a.stateT <= 0) { spawnEmoji(a, '✨'); a.state = 'pause'; a.stateT = rand(0.4, 1.2); }
+      break;
+    }
+    case 'chase': {
+      const t = a.partner;
+      if (!t || t.state !== 'flee') { endPlay(a); break; }
+      a.tgx = t.gx; a.tgy = t.gy;
+      moveToward(a, dt, 1.6);
+      if (Math.hypot(a.gx - t.gx, a.gy - t.gy) < 0.045 || a.stateT <= 0) {
+        spawnEmoji(a, '🎉'); spawnEmoji(t, '😆');
+        endPlay(t); endPlay(a);
+      }
+      break;
+    }
+    case 'flee': {
+      if (!a.partner || a.partner.state !== 'chase') { endPlay(a); break; }
+      a.fleeT -= dt;
+      if (a.fleeT <= 0) {
+        a.fleeT = 0.6;
+        const c = a.partner;
+        let dx = a.gx - c.gx, dy = a.gy - c.gy;
+        const d = Math.hypot(dx, dy) || 1;
+        a.tgx = clamp(a.gx + dx / d * 0.3 + rand(-0.12, 0.12), 0.05, 0.95);
+        a.tgy = clamp(a.gy + dy / d * 0.3 + rand(-0.12, 0.12), 0.15, 0.97);
+      }
+      moveToward(a, dt, 1.5);
+      if (Math.random() < 0.8 * dt) spawnEmoji(a, '💨');
+      if (a.stateT <= 0) endPlay(a);
+      break;
+    }
+    case 'dance': {
+      a.movingT = 0;
+      if (a.stateT <= 0) { a.state = 'pause'; a.stateT = rand(0.4, 1.2); }
+      break;
+    }
+    case 'nap': {
+      a.movingT = 0;
+      a.zzT -= dt;
+      if (a.zzT <= 0) { a.zzT = 1.5; spawnEmoji(a, '💤'); }
+      if (a.stateT <= 0) { spawnEmoji(a, '🥱'); a.state = 'pause'; a.stateT = rand(0.4, 1.2); }
+      break;
+    }
+  }
+}
+
+// pairing: every ~0.5s, two walkers within 0.09 have a 40% chance to chat
+function tryPairing(now) {
+  for (let i = 0; i < actors.length; i++) {
+    for (let j = i + 1; j < actors.length; j++) {
+      const a = actors[i], b = actors[j];
+      if (a.state !== 'walk' || b.state !== 'walk') continue;
+      if (a.cool > now || b.cool > now) continue;
+      if (Math.hypot(a.gx - b.gx, a.gy - b.gy) >= 0.09) continue;
+      if (Math.random() >= 0.4) continue;
+      const dur = rand(2.5, 5);
+      a.state = 'chat'; b.state = 'chat';
+      a.stateT = dur; b.stateT = dur;
+      a.movingT = 0; b.movingT = 0;
+      a.partner = b; b.partner = a;
+      a.facing = b.gx > a.gx ? 1 : -1;
+      b.facing = -a.facing;
+      a.chatT = 0.15; b.chatT = 0.75;
+      return;
+    }
+  }
+}
+
+// director: treats every 3-6s, play events every 6-11s
+let treatT = rand(2, 4), playT = rand(4, 8), pairT = 0.5;
+function mingleDirector(dt) {
+  treatT -= dt;
+  if (treatT <= 0) {
+    treatT = rand(3, 6);
+    const cap = Math.min(4, Math.ceil(actors.length / 2) + 1);
+    if (actors.length && props.length < cap) {
+      const p = dropTreat(rand(0.1, 0.9), rand(0.4, 0.95), pick(FOODS));
+      assignTreat(p);
+    }
+  }
+  playT -= dt;
+  if (playT <= 0) {
+    playT = rand(6, 11);
+    startPlay();
+  }
+}
+function startPlay() {
+  const free = actors.filter(a => (a.state === 'walk' || a.state === 'pause') && !a.target);
+  if (!free.length) return;
+  const r = Math.random();
+  if (r < 0.45 && free.length >= 2) {
+    const c = free.splice((Math.random() * free.length) | 0, 1)[0];
+    const f = free.splice((Math.random() * free.length) | 0, 1)[0];
+    const dur = rand(3.5, 5.5);
+    c.state = 'chase'; f.state = 'flee';
+    c.partner = f; f.partner = c;
+    c.stateT = dur; f.stateT = dur; f.fleeT = 0;
+    spawnEmoji(c, '😄'); spawnEmoji(f, '🎉');
+  } else if (r < 0.8) {
+    const n = Math.min(free.length, 1 + ((Math.random() * 2) | 0));
+    for (let i = 0; i < n; i++) {
+      const a = free.splice((Math.random() * free.length) | 0, 1)[0];
+      a.state = 'dance'; a.stateT = rand(2.5, 4.5); a.movingT = 0;
+      spawnEmoji(a, '♪');
+    }
+  } else {
+    const a = pick(free);
+    a.state = 'nap'; a.stateT = rand(4, 7); a.movingT = 0; a.zzT = 0.4;
+  }
+}
+
+// ---------- tap interaction ----------
+stage.addEventListener('pointerdown', e => {
+  wake();
+  if (e.target.closest('.dock') || e.target.closest('#results')) return;
+  if (mode === 'race') return;
+  const sx = e.clientX, sy = e.clientY;
+  const hit = actors.slice().sort((a, b) => b.gy - a.gy).find(a => {
+    if (!a.ready) return false;
+    const wpx = a.H * a.aspect;
+    return Math.abs(sx - a.sx) < wpx * 0.55 && sy < a.sy + 10 && sy > a.sy - a.H * 1.15;
+  });
+  if (hit) {
+    hit.state = 'dance'; hit.stateT = 1.4; hit.movingT = 0;
+    if (hit.partner) { hit.partner.partner = null; hit.partner = null; }
+    if (hit.target) { hit.target.claimed = null; hit.target = null; }
+    spawnEmoji(hit, '❤️');
+    setTimeout(() => spawnEmoji(hit, '✨'), 320);
+  } else {
+    const w = screenToWorld(sx, sy);
+    if (sy > SH * FIELD.top) {
+      const p = dropTreat(w.gx, w.gy, pick(FOODS));
+      assignTreat(p);
+    }
+  }
+});
+
+// ---------- idle auto-hide ----------
+let idleT = 0;
+function wake() { idleT = 0; document.body.classList.remove('idle'); }
+['pointermove', 'pointerdown', 'keydown', 'wheel'].forEach(ev => window.addEventListener(ev, wake, { passive: true }));
+
+// ---------- race mode ----------
+const RACE = { total: 420, startX: 0.13, anchorX: 0.62, laneTop: 0.40, laneBot: 0.90 };
+const HAZARDS_DEF = [
+  { d: 80,  e: '🪨', t: 'hop'  },
+  { d: 140, e: '🍌', t: 'slip' },
+  { d: 200, e: '🚧', t: 'hop'  },
+  { d: 260, e: '💦', t: 'slip' },
+  { d: 320, e: '🪨', t: 'hop'  },
+  { d: 375, e: '🍌', t: 'slip' },
+];
+let mode = 'mingle';
+let raceOn = false;
+let racers = [];
+let camShift = 0, leaderDist = 0, raceTime = 0, finishCount = 0;
+let lastLeadId = null, leadCool = 0, spurted = false, directorT = 2.5, resultsShown = false;
+let raceProps = [];
+let boardKey = '';
+
+const ppm = () => SW / 430;
+const laneGy = (i, n) => lerp(RACE.laneTop, RACE.laneBot, (i + 0.5) / Math.max(1, n));
+const raceScreenX = d => SW * RACE.startX + d * ppm() - camShift;
+
+function setMode(m) {
+  if (m === mode) return;
+  mode = m;
+  document.querySelectorAll('#modeSeg [data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+  if (m === 'race') startRace();
+  else endRace();
+}
+
+function startRace() {
+  props.slice().forEach(removeProp);
+  $('#results').style.display = 'none';
+  racers = actors.slice();
+  finishCount = 0; raceTime = 0; camShift = 0;
+  spurted = false; resultsShown = false; lastLeadId = null; leadCool = 0; directorT = 2.5;
+  boardKey = '';
+  racers.forEach((a, i) => {
+    a.state = 'race';
+    if (a.partner) { a.partner.partner = null; a.partner = null; }
+    if (a.target) { a.target.claimed = null; a.target = null; }
+    a.moving = 0; a.movingT = 0;
+    a.dist = 0; a.lane = i;
+    a.gy = laneGy(i, racers.length);
+    a.facing = 1;
+    a.raceBase = rand(12.5, 15.5);
+    a.formFreq = rand(0.7, 1.6);
+    a.formPhase = rand(0, 6.28);
+    a.boost = 0; a.turbo = 0; a.stumble = 0; a.slip = 0; a.jumpT = 0;
+    a.finished = false; a.rank = 0; a.time = 0; a.speedVis = 0;
+    a.sxOverride = raceScreenX(0);
+  });
+  buildRaceProps();
+  document.body.classList.add('race');
+  $('#crown').style.display = racers.length ? 'block' : 'none';
+  raceOn = false;
+  runCountdown();
+  hint('レース中はタップ操作おやすみ🏁');
+}
+
+function endRace() {
+  raceOn = false;
+  document.body.classList.remove('race');
+  $('#crown').style.display = 'none';
+  $('#countdown').style.display = 'none';
+  $('#results').style.display = 'none';
+  raceProps.forEach(p => p.el.remove());
+  raceProps = [];
+  racers = [];
+  actors.forEach(a => {
+    a.sxOverride = null;
+    a.state = 'pause'; a.stateT = rand(0.3, 1.5);
+    a.gx = rand(0.1, 0.9); a.gy = rand(0.35, 0.95);
+    a.finished = false;
+    a.tag.textContent = a.name;
+  });
+  hint('地面タップでごはん🍙 / キャラタップでよろこぶ❤️');
+}
+
+function runCountdown() {
+  const cd = $('#countdown');
+  let n = 3;
+  cd.style.display = 'flex';
+  const tick = () => {
+    if (mode !== 'race') { cd.style.display = 'none'; return; }
+    cd.classList.remove('pop');
+    void cd.offsetWidth;
+    cd.classList.add('pop');
+    if (n > 0) {
+      cd.textContent = String(n);
+      n--;
+      setTimeout(tick, 900);
+    } else {
+      cd.textContent = 'GO!';
+      raceOn = true;
+      raceTime = 0;
+      callout('スタート！', '#ffd54a');
+      setTimeout(() => { cd.style.display = 'none'; }, 750);
+    }
+  };
+  tick();
+}
+
+function buildRaceProps() {
+  raceProps.forEach(p => p.el.remove());
+  raceProps = [];
+  const holder = $('#raceProps');
+  const addProp = (kind, d, gy, html, cls) => {
+    const el = document.createElement('div');
+    el.className = 'rprop ' + cls;
+    el.innerHTML = html;
+    holder.appendChild(el);
+    raceProps.push({ el, d, gy, kind });
+  };
+  addProp('gate', 0, 0, '<span class="glabel">START</span>', 'gate');
+  addProp('gate', RACE.total, 0, '<span class="glabel">GOAL</span>', 'gate');
+  for (let d = 100; d < RACE.total; d += 100) {
+    addProp('emoji', d, 0.36, '🚩<small>' + d + 'm</small>', 'marker');
+  }
+  HAZARDS_DEF.forEach(h => addProp('emoji', h.d, 0.66, h.e, 'hazard'));
+}
+
+function drawRaceProps() {
+  for (const p of raceProps) {
+    const x = raceScreenX(p.d);
+    if (x < -140 || x > SW + 140) { p.el.style.display = 'none'; continue; }
+    p.el.style.display = 'block';
+    if (p.kind === 'gate') {
+      p.el.style.height = (SH * (FIELD.bottom - FIELD.top)) + 'px';
+      p.el.style.transform = 'translate(' + (x - 8) + 'px,' + (SH * FIELD.top) + 'px)';
+      p.el.style.zIndex = '1500';
+    } else {
+      const pr = project(0.5, p.gy);
+      p.el.style.transform = 'translate(' + x + 'px,' + pr.sy + 'px) translate(-50%,-100%) scale(' + pr.scale + ')';
+      p.el.style.zIndex = String(Math.round(p.gy * 1000) - 1);
+    }
+  }
+}
+
+// §8 speed model — 数値は指示書のとおり
+function advanceRacer(a, dt, now, packAvg, prog) {
+  if (a.finished) { a.speedVis = 0; return; }
+  a.boost = Math.max(0, a.boost - dt * 1.6);
+  a.turbo = Math.max(0, a.turbo - dt);
+  a.stumble = Math.max(0, a.stumble - dt);
+  a.slip = Math.max(0, a.slip - dt);
+  a.jumpT = Math.max(0, a.jumpT - dt);
+
+  if (Math.random() < 0.60 * dt) {
+    a.boost = rand(5, 11);
+  } else if (Math.random() < 0.22 * dt && a.dist > 20 && a.slip <= 0 && a.turbo <= 0) {
+    a.stumble = rand(0.3, 0.7);
+    spawnEmoji(a, '💫');
+  }
+
+  const form = Math.sin(now / 1000 * a.formFreq + a.formPhase);
+  const rb = packAvg - a.dist;
+  const catchCoef = 0.0035 + Math.max(0, prog - 0.68) * 0.06;
+  const capPos = 0.12 + Math.max(0, prog - 0.68) * 1.4;
+
+  let speed = a.raceBase * (1 + form * 0.42) + a.boost;
+  speed *= 1 + clamp(rb * catchCoef, -0.16, capPos);
+  if (a.turbo > 0) { speed *= 1.9; if (Math.random() < 8 * dt) spawnEmoji(a, '🔥'); }
+  if (a.stumble > 0) speed *= 0.32;
+  if (a.slip > 0) speed *= 0.30;
+  speed = Math.max(2, speed);
+
+  const prev = a.dist;
+  a.dist += speed * dt;
+  a.speedVis = speed;
+
+  for (const h of HAZARDS_DEF) {
+    if (prev < h.d && a.dist >= h.d) {
+      if (h.t === 'hop') a.jumpT = 0.55;
+      else { a.slip = 0.7; spawnEmoji(a, '💦'); }
+    }
+  }
+
+  if (a.dist >= RACE.total) {
+    a.dist = RACE.total;
+    a.finished = true;
+    a.rank = ++finishCount;
+    a.time = raceTime;
+    if (a.rank === 1) callout('🏆 ' + a.name + ' 優勝！', '#ffd54a');
+    else spawnEmoji(a, '🎉');
+  }
+}
+
+function raceDirector(dt, packAvg, prog) {
+  directorT -= dt;
+  if (directorT <= 0) {
+    directorT = rand(2.6, 4.2);
+    const cands = racers.filter(a => !a.finished);
+    if (cands.length) {
+      const last = cands.reduce((m, a) => a.dist < m.dist ? a : m);
+      if (packAvg - last.dist > RACE.total * 0.03) {
+        last.turbo = rand(2.6, 4.2);
+        callout(last.name + ' 大逆転なるか!?', '#ff8a65');
+      }
+    }
+  }
+  if (!spurted && prog > 0.72) {
+    spurted = true;
+    callout('ラストスパート！🔥', '#ff5252');
+  }
+}
+
+function updateLeaderUI(now) {
+  if (!racers.length) return;
+  const order = racers.slice().sort((a, b) => b.dist - a.dist);
+  order.forEach((a, i) => { a.tag.textContent = (i + 1) + '位 ' + a.name; });
+  const leader = order[0];
+
+  const crown = $('#crown');
+  crown.style.transform = 'translate(' + leader.sx + 'px,' + (leader.sy - leader.H - 14 * leader.scale) + 'px) translate(-50%,-100%) scale(' + leader.scale + ')';
+
+  if (raceOn && lastLeadId !== null && lastLeadId !== leader.id && now - leadCool > 1700 && !leader.finished) {
+    callout('先頭交代！ ' + leader.name, '#4fc3f7');
+    leadCool = now;
+  }
+  lastLeadId = leader.id;
+
+  const top = order.slice(0, 3);
+  const key = top.map(a => a.id).join('|');
+  if (key !== boardKey) {
+    boardKey = key;
+    const medals = ['🥇', '🥈', '🥉'];
+    $('#board').innerHTML = top.map((a, i) =>
+      '<div class="brow"><span>' + medals[i] + '</span><img src="' + a.img.src + '" alt=""><b>' + escapeHtml(a.name) + '</b></div>'
+    ).join('');
+  }
+
+  const prog = clamp(leader.dist / RACE.total, 0, 1);
+  $('#lapFill').style.width = (prog * 100) + '%';
+  $('#lapPct').textContent = Math.round(prog * 100) + '%';
+}
+
+function showResults() {
+  const medals = { 1: '🥇', 2: '🥈', 3: '🥉' };
+  const rows = racers.slice().sort((a, b) => (a.rank || 99) - (b.rank || 99)).map(a => {
+    const m = medals[a.rank] || (a.rank + '位');
+    return '<div class="rrow"><span class="rm">' + m + '</span><img src="' + a.img.src + '" alt=""><span class="rn">' + escapeHtml(a.name) + '</span><span class="rt">' + a.time.toFixed(1) + '秒</span></div>';
+  }).join('');
+  $('#results').innerHTML = '<h2>🏁 レース結果</h2>' + rows +
+    '<div class="rbtns"><button id="btnAgain">もう一度</button><button id="btnMingle" class="ghost">交流モードへ</button></div>';
+  $('#results').style.display = 'block';
+  $('#btnAgain').onclick = () => { $('#results').style.display = 'none'; startRace(); };
+  $('#btnMingle').onclick = () => { $('#results').style.display = 'none'; setMode('mingle'); };
+}
+
+// ---------- callout ----------
+function callout(text, color) {
+  const el = $('#callout');
+  el.textContent = text;
+  el.style.color = color || '#fff';
+  el.classList.remove('pop');
+  void el.offsetWidth;
+  el.classList.add('pop');
+}
+
+// ---------- hint ----------
+let hintTimer = null;
+function hint(msg) {
+  const el = $('#hint');
+  el.textContent = msg;
+  el.style.opacity = '1';
+  if (hintTimer) clearTimeout(hintTimer);
+  hintTimer = setTimeout(() => { el.style.opacity = ''; }, 4000);
+}
+
+// ---------- Drive (GAS) ----------
+function normalizeList(j) {
+  let arr = Array.isArray(j) ? j : (j && (j.characters || j.files || j.items)) || [];
+  if (!Array.isArray(arr)) arr = [];
+  return arr.map(it => ({
+    name: it.name || it.title || 'キャラ',
+    url: it.url || it.imageUrl || it.thumbnail || it.thumbnailLink || it.link,
+    id: it.id || it.fileId || it.url || it.imageUrl,
+    b64: !!it.b64,
+    thumb: it.thumb || it.thumbnail || it.thumbnailLink,
+  })).filter(it => it.url);
+}
+async function loadDrive(manual) {
+  const url = $('#driveUrl').value.trim();
+  if (!url) { if (manual) hint('GASのURLを入力してください'); return; }
+  try {
+    const r = await fetch(url, { cache: 'no-store' });
+    const j = await r.json();
+    const list = normalizeList(j).filter(it => !seenIds.has(String(it.id)));
+    if (list.length) {
+      addCharacters(list);
+      hint('Driveから ' + list.length + ' 体 追加しました');
+    } else if (manual) {
+      hint('新しいキャラはありませんでした');
+    }
+  } catch (e) {
+    if (manual) hint('Drive読込に失敗: ' + e.message);
+  }
+}
+setInterval(() => { if ($('#autoRefresh').checked) loadDrive(false); }, 15000);
+
+// ---------- dock UI ----------
+$('#modeSeg').addEventListener('click', e => {
+  const b = e.target.closest('button[data-mode]');
+  if (b) setMode(b.dataset.mode);
+});
+$('#sceneSeg').addEventListener('click', e => {
+  const b = e.target.closest('button[data-scene]');
+  if (b) setScene(b.dataset.scene);
+});
+$('#styleCut').addEventListener('click', () => {
+  document.body.classList.remove('force-frame');
+  $('#styleCut').classList.add('on');
+  $('#styleFrame').classList.remove('on');
+});
+$('#styleFrame').addEventListener('click', () => {
+  document.body.classList.add('force-frame');
+  $('#styleFrame').classList.add('on');
+  $('#styleCut').classList.remove('on');
+});
+$('#btnAdd').addEventListener('click', () => $('#filePick').click());
+$('#filePick').addEventListener('change', () => {
+  const files = Array.from($('#filePick').files || []);
+  files.forEach(f => {
+    addCharacter({
+      name: f.name.replace(/\.[^.]+$/, ''),
+      url: URL.createObjectURL(f),
+      id: 'file:' + f.name + ':' + f.size + ':' + Date.now() + ':' + Math.random(),
+    });
+  });
+  $('#filePick').value = '';
+});
+$('#btnSample').addEventListener('click', () => {
+  const pal = pick(SAMPLE_PALETTES);
+  const name = SAMPLE_NAMES[sampleN % SAMPLE_NAMES.length] + (sampleN >= SAMPLE_NAMES.length ? String((sampleN / SAMPLE_NAMES.length | 0) + 1) : '');
+  sampleN++;
+  addCharacter({ name, id: 'sample:' + Date.now() + ':' + Math.random(), url: mascotSVG(pal[0], pal[1], pal[2]), transparent: true });
+});
+$('#btnClear').addEventListener('click', () => { clearAll(); hint('全キャラを消去しました'); });
+$('#btnDrive').addEventListener('click', () => loadDrive(true));
+$('#btnFull').addEventListener('click', () => {
+  try {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen();
+  } catch (e) { /* signage environments without fullscreen API */ }
+});
+
+// ---------- main loop ----------
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+
+  idleT += dt;
+  if (idleT > 6) document.body.classList.add('idle');
+
+  if (mode === 'mingle') {
+    pairT -= dt;
+    if (pairT <= 0) { pairT = 0.5; tryPairing(now); }
+    mingleDirector(dt);
+    for (let i = props.length - 1; i >= 0; i--) {
+      if (now - props[i].born > 15000) removeProp(props[i]);
+    }
+    drawProps();
+  } else {
+    if (raceOn && racers.length) {
+      raceTime += dt;
+      const unf = racers.filter(a => !a.finished);
+      const base = unf.length ? unf : racers;
+      const packAvg = base.reduce((s, a) => s + a.dist, 0) / base.length;
+      const prog = racers.reduce((m, a) => Math.max(m, a.dist), 0) / RACE.total;
+      raceDirector(dt, packAvg, prog);
+      racers.forEach(a => advanceRacer(a, dt, now, packAvg, prog));
+      if (finishCount >= racers.length && !resultsShown) {
+        resultsShown = true;
+        setTimeout(() => { if (mode === 'race') showResults(); }, 900);
+      }
+    }
+    leaderDist = racers.reduce((m, a) => Math.max(m, a.dist), 0);
+    camShift = Math.max(0, SW * RACE.startX + leaderDist * ppm() - SW * RACE.anchorX);
+    racers.forEach(a => { a.sxOverride = raceScreenX(a.dist); });
+    $('#raceGround').style.backgroundPositionX = (-camShift) + 'px';
+    drawRaceProps();
+    updateLeaderUI(now);
+  }
+
+  for (const a of actors) animateActor(a, dt, now);
+  requestAnimationFrame(loop);
+}
+
+// ---------- boot ----------
+setScene('kintai');
+addCharacters(SEEDS);
+// URLに ?gas=GASのURL を付けると自動でDrive連携を開始（サイネージ運用向け）
+(() => {
+  try {
+    const gas = new URLSearchParams(window.location.search).get('gas');
+    if (gas) {
+      $('#driveUrl').value = gas;
+      $('#autoRefresh').checked = true;
+      loadDrive(true);
+    }
+  } catch (e) { /* URL解析に失敗しても起動は続行 */ }
+})();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
