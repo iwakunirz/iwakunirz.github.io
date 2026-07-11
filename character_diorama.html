@@ -293,63 +293,105 @@ function whiteCutout(img) {
   ctx.drawImage(img, 0, 0, w, h);
   let base;
   try { base = ctx.getImageData(0, 0, w, h); } catch (e) { return null; } // CORS-tainted
-  // 段階的リトライ: 閾値64はもや・薄影まで消えるが、白いキャラは輪郭が薄いと
-  // 本体まで透過が漏れる。中央部が空洞化していたら閾値を下げて再処理する。
-  let best = null, bestHollow = Infinity;
-  for (const thr of [64, 40, 24]) {
+  const attempt = thr => {
     const d = new ImageData(new Uint8ClampedArray(base.data), w, h);
-    const hollow = floodCutWhite(d.data, w, h, thr);
-    if (hollow < 0.35) { best = d; break; }
-    if (hollow < bestHollow) { best = d; bestHollow = hollow; }
+    const m = floodCutWhite(d.data, w, h, thr);
+    return { d, c: m.center, f: m.face };
+  };
+  // 基準比較方式: まず安全な閾値(24)で処理した結果を基準に、
+  // 強い閾値(64/40)が顔・体の領域を余計に削っていないか比べて採用する。
+  // （白いキャラの本体侵食を防ぎつつ、もや・薄影の除去力は維持）
+  const strict = attempt(24);
+  let chosen = null;
+  for (const thr of [64, 40]) {
+    const a = attempt(thr);
+    if (a.c - strict.c < 0.15 && a.f - strict.f < 0.15) { chosen = a; break; }
   }
-  ctx.putImageData(best, 0, 0);
+  if (!chosen) chosen = strict;
+  ctx.putImageData(chosen.d, 0, 0);
   try { return c.toDataURL('image/png'); } catch (e) { return null; }
 }
 
 // フチから繋がった「白」(whiteness<THR)を透過し、境界をフェザリング。
-// 戻り値: 画像中央部(35〜65%)の透過率 0..1（高いほどキャラ本体が侵食された疑い）
+// 輪郭の細かい切れ目(〜4px)から顔・体へ透過が漏れないよう、
+// 白マスクを2px収縮してから流し込み、あとで縁の白だけ回収(3px膨張)する。
+// 戻り値: {center, face} 各領域の透過率 0..1（高いほど本体侵食の疑い）
 function floodCutWhite(px, w, h, THR) {
-  const visited = new Uint8Array(w * h);
+  const n = w * h;
+  const whitenessAt = i => { const o = i * 4; return Math.max(255 - px[o], 255 - px[o + 1], 255 - px[o + 2]); };
+  const white = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    if (px[i * 4 + 3] > 10 && whitenessAt(i) < THR) white[i] = 1;
+  }
+  // 収縮2回（画像外は白扱い: フチは残す）
+  let mask = white;
+  for (let it = 0; it < 2; it++) {
+    const nx = new Uint8Array(n);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = y * w + x;
+        if (!mask[i]) continue;
+        const l = x > 0 ? mask[i - 1] : 1, r = x < w - 1 ? mask[i + 1] : 1;
+        const u = y > 0 ? mask[i - w] : 1, d = y < h - 1 ? mask[i + w] : 1;
+        if (l && r && u && d) nx[i] = 1;
+      }
+    }
+    mask = nx;
+  }
+  // フチから flood fill（収縮後マスク上）
+  const removed = new Uint8Array(n);
   const stack = [];
-  const whiteness = i => { const o = i * 4; return Math.max(255 - px[o], 255 - px[o + 1], 255 - px[o + 2]); };
-  const isWhite = i => px[i * 4 + 3] > 10 && whiteness(i) < THR;
-  const push = i => { if (!visited[i] && isWhite(i)) { visited[i] = 1; stack.push(i); } };
-  for (let x = 0; x < w; x++) { push(x); push((h - 1) * w + x); }
-  for (let y = 0; y < h; y++) { push(y * w); push(y * w + w - 1); }
+  const seed = i => { if (mask[i] && !removed[i]) { removed[i] = 1; stack.push(i); } };
+  for (let x = 0; x < w; x++) { seed(x); seed((h - 1) * w + x); }
+  for (let y = 0; y < h; y++) { seed(y * w); seed(y * w + w - 1); }
   while (stack.length) {
     const i = stack.pop();
-    px[i * 4 + 3] = 0;
     const cx = i % w, cy = (i / w) | 0;
-    if (cx > 0) push(i - 1);
-    if (cx < w - 1) push(i + 1);
-    if (cy > 0) push(i - w);
-    if (cy < h - 1) push(i + w);
+    if (cx > 0) seed(i - 1);
+    if (cx < w - 1) seed(i + 1);
+    if (cy > 0) seed(i - w);
+    if (cy < h - 1) seed(i + w);
   }
+  // 膨張3回（元の白の範囲内のみ）: 収縮で残った縁の白を回収
+  for (let it = 0; it < 3; it++) {
+    const add = [];
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = y * w + x;
+        if (removed[i] || !white[i]) continue;
+        if ((x > 0 && removed[i - 1]) || (x < w - 1 && removed[i + 1]) ||
+            (y > 0 && removed[i - w]) || (y < h - 1 && removed[i + w])) add.push(i);
+      }
+    }
+    for (const i of add) removed[i] = 1;
+  }
+  // 透過反映
+  for (let i = 0; i < n; i++) if (removed[i]) px[i * 4 + 3] = 0;
   // フェザリング: 除去領域に接する薄い縁を半透明にして白フチを消す
   const T2 = THR * 1.75;
-  for (let i = 0; i < w * h; i++) {
-    if (visited[i] || px[i * 4 + 3] === 0) continue;
-    const cx = i % w, cy = (i / w) | 0;
-    const nearCut =
-      (cx > 0 && visited[i - 1]) || (cx < w - 1 && visited[i + 1]) ||
-      (cy > 0 && visited[i - w]) || (cy < h - 1 && visited[i + w]);
-    if (!nearCut) continue;
-    const v = whiteness(i);
-    if (v < T2) {
-      px[i * 4 + 3] = clamp(Math.round(255 * (v - THR) / (T2 - THR)), 0, 255);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      if (removed[i] || px[i * 4 + 3] === 0) continue;
+      const near = (x > 0 && removed[i - 1]) || (x < w - 1 && removed[i + 1]) ||
+                   (y > 0 && removed[i - w]) || (y < h - 1 && removed[i + w]);
+      if (!near) continue;
+      const v = whitenessAt(i);
+      if (v < T2) px[i * 4 + 3] = clamp(Math.round(255 * (v - THR) / (T2 - THR)), 0, 255);
     }
   }
-  // 中央部の空洞率（キャラはほぼ必ず画像中央を覆う前提のリーク検出）
-  const x0 = Math.floor(w * 0.35), x1 = Math.ceil(w * 0.65);
-  const y0 = Math.floor(h * 0.35), y1 = Math.ceil(h * 0.65);
-  let n = 0, t = 0;
-  for (let y = y0; y < y1; y++) {
-    for (let x = x0; x < x1; x++) {
-      n++;
-      if (px[(y * w + x) * 4 + 3] === 0) t++;
+  // 空洞率: 中央(体)と上寄り(顔)の2領域で本体侵食を検出
+  const boxHollow = (x0, x1, y0, y1) => {
+    let cnt = 0, tr = 0;
+    for (let y = Math.floor(h * y0); y < h * y1; y++) {
+      for (let x = Math.floor(w * x0); x < w * x1; x++) {
+        cnt++;
+        if (px[(y * w + x) * 4 + 3] === 0) tr++;
+      }
     }
-  }
-  return n ? t / n : 0;
+    return cnt ? tr / cnt : 0;
+  };
+  return { center: boxHollow(0.35, 0.65, 0.35, 0.65), face: boxHollow(0.32, 0.68, 0.12, 0.42) };
 }
 
 // ---------- built-in mascot SVG (seeds & samples) ----------
