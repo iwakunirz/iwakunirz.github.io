@@ -290,13 +290,26 @@ function whiteCutout(img) {
   c.width = w; c.height = h;
   const ctx = c.getContext('2d', { willReadFrequently: true });
   ctx.drawImage(img, 0, 0, w, h);
-  let d;
-  try { d = ctx.getImageData(0, 0, w, h); } catch (e) { return null; } // CORS-tainted
-  const px = d.data;
+  let base;
+  try { base = ctx.getImageData(0, 0, w, h); } catch (e) { return null; } // CORS-tainted
+  // 段階的リトライ: 閾値64はもや・薄影まで消えるが、白いキャラは輪郭が薄いと
+  // 本体まで透過が漏れる。中央部が空洞化していたら閾値を下げて再処理する。
+  let best = null, bestHollow = Infinity;
+  for (const thr of [64, 40, 24]) {
+    const d = new ImageData(new Uint8ClampedArray(base.data), w, h);
+    const hollow = floodCutWhite(d.data, w, h, thr);
+    if (hollow < 0.35) { best = d; break; }
+    if (hollow < bestHollow) { best = d; bestHollow = hollow; }
+  }
+  ctx.putImageData(best, 0, 0);
+  try { return c.toDataURL('image/png'); } catch (e) { return null; }
+}
+
+// フチから繋がった「白」(whiteness<THR)を透過し、境界をフェザリング。
+// 戻り値: 画像中央部(35〜65%)の透過率 0..1（高いほどキャラ本体が侵食された疑い）
+function floodCutWhite(px, w, h, THR) {
   const visited = new Uint8Array(w * h);
   const stack = [];
-  // 閾値64: AI生成画像のクリーム色のもや・薄い影も背景として除去（実画像でチューニング済み）
-  const THR = 64;
   const whiteness = i => { const o = i * 4; return Math.max(255 - px[o], 255 - px[o + 1], 255 - px[o + 2]); };
   const isWhite = i => px[i * 4 + 3] > 10 && whiteness(i) < THR;
   const push = i => { if (!visited[i] && isWhite(i)) { visited[i] = 1; stack.push(i); } };
@@ -325,8 +338,17 @@ function whiteCutout(img) {
       px[i * 4 + 3] = clamp(Math.round(255 * (v - THR) / (T2 - THR)), 0, 255);
     }
   }
-  ctx.putImageData(d, 0, 0);
-  try { return c.toDataURL('image/png'); } catch (e) { return null; }
+  // 中央部の空洞率（キャラはほぼ必ず画像中央を覆う前提のリーク検出）
+  const x0 = Math.floor(w * 0.35), x1 = Math.ceil(w * 0.65);
+  const y0 = Math.floor(h * 0.35), y1 = Math.ceil(h * 0.65);
+  let n = 0, t = 0;
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      n++;
+      if (px[(y * w + x) * 4 + 3] === 0) t++;
+    }
+  }
+  return n ? t / n : 0;
 }
 
 // ---------- built-in mascot SVG (seeds & samples) ----------
