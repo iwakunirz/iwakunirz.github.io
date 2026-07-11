@@ -129,6 +129,7 @@ body.idle #dockToggle{opacity:.25}
     <div class="row" id="modeSeg">
       <button data-mode="mingle" class="on">交流モード</button>
       <button data-mode="race">レースモード</button>
+      <button id="btnAutoRace" class="on">自動レース ON</button>
       <span id="count">0/12体</span>
       <button id="btnAdd">画像を追加</button>
       <button id="btnSample">サンプル+</button>
@@ -868,6 +869,12 @@ const HAZARDS_DEF = [
 ];
 let mode = 'mingle';
 let raceOn = false;
+// 自動レースサイクル: 交流2分 → レース → 結果10秒 → 交流 → …
+const AUTO_RACE_SEC = 120;
+const RESULTS_SEC = 10;
+let autoRace = true;
+let autoRaceT = 0;
+let resultsTimer = null;
 let racers = [];
 let camShift = 0, leaderDist = 0, raceTime = 0, finishCount = 0;
 let lastLeadId = null, leadCool = 0, spurted = false, directorT = 2.5, resultsShown = false;
@@ -922,6 +929,8 @@ function startRace() {
 function endRace() {
   raceOn = false;
   raceShrink = 1;
+  autoRaceT = 0; // 交流モードに戻ったら次のレースまでの2分を計り直す
+  clearResultsTimer();
   document.body.classList.remove('race');
   $('#crown').style.display = 'none';
   $('#countdown').style.display = 'none';
@@ -1109,8 +1118,20 @@ function showResults() {
   $('#results').innerHTML = '<h2>🏁 レース結果</h2>' + rows +
     '<div class="rbtns"><button id="btnAgain">もう一度</button><button id="btnMingle" class="ghost">交流モードへ</button></div>';
   $('#results').style.display = 'block';
-  $('#btnAgain').onclick = () => { $('#results').style.display = 'none'; startRace(); };
-  $('#btnMingle').onclick = () => { $('#results').style.display = 'none'; setMode('mingle'); };
+  $('#btnAgain').onclick = () => { clearResultsTimer(); $('#results').style.display = 'none'; startRace(); };
+  $('#btnMingle').onclick = () => { clearResultsTimer(); $('#results').style.display = 'none'; setMode('mingle'); };
+  // 結果を10秒表示したら自動で交流モードへ（自動レースサイクル）
+  clearResultsTimer();
+  resultsTimer = setTimeout(() => {
+    resultsTimer = null;
+    if (mode === 'race' && $('#results').style.display === 'block') {
+      $('#results').style.display = 'none';
+      setMode('mingle');
+    }
+  }, RESULTS_SEC * 1000);
+}
+function clearResultsTimer() {
+  if (resultsTimer) { clearTimeout(resultsTimer); resultsTimer = null; }
 }
 
 // ---------- callout ----------
@@ -1203,6 +1224,12 @@ $('#btnSample').addEventListener('click', () => {
 });
 $('#btnClear').addEventListener('click', () => { clearAll(); hint('全キャラを消去しました'); });
 $('#btnDrive').addEventListener('click', () => loadDrive(true));
+$('#btnAutoRace').addEventListener('click', () => {
+  autoRace = !autoRace;
+  autoRaceT = 0;
+  $('#btnAutoRace').textContent = '自動レース ' + (autoRace ? 'ON' : 'OFF');
+  $('#btnAutoRace').classList.toggle('on', autoRace);
+});
 $('#btnHideDock').addEventListener('click', () => document.body.classList.add('dockHidden'));
 $('#dockToggle').addEventListener('click', () => document.body.classList.remove('dockHidden'));
 $('#btnFull').addEventListener('click', () => {
@@ -1222,6 +1249,11 @@ function loop(now) {
   if (idleT > 6) document.body.classList.add('idle');
 
   if (mode === 'mingle') {
+    // 自動レース: 交流が2分続いたらレース開始（2体以上いるとき）
+    if (autoRace && actors.length >= 2) {
+      autoRaceT += dt;
+      if (autoRaceT >= AUTO_RACE_SEC) { autoRaceT = 0; setMode('race'); }
+    }
     pairT -= dt;
     if (pairT <= 0) { pairT = 0.5; tryPairing(now); }
     mingleDirector(dt);
@@ -1230,6 +1262,7 @@ function loop(now) {
     }
     drawProps();
   } else {
+    if (raceOn && !racers.length) setMode('mingle'); // 全消去などでレーサー不在なら戻る
     if (raceOn && racers.length) {
       raceTime += dt;
       const unf = racers.filter(a => !a.finished);
