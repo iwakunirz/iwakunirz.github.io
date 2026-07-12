@@ -1441,18 +1441,34 @@ function loop(now) {
 
 // ---------- boot ----------
 setScene('kintai');
-addCharacters(SEEDS);
-// Drive連携: 既定でイベント用GASに自動接続（?gas=URL で上書きも可能）
+// キャラは確定済み: サイトに焼き込んだ白抜き済み画像(characters.json + chars/*.webp)を既定で読み込む。
+// ?gas=URL を付けたときだけ従来のDrive(GAS)モードで動く。
 const DEFAULT_GAS = 'https://script.google.com/macros/s/AKfycbwhwJmMef2jPxrVbstOFCFFWurCTIsv0W6UL-ozaC7xYPlAy5qXlHkyOSjGVM1w35s76A/exec';
-(() => {
+(async () => {
+  let gas = null;
+  try { gas = new URLSearchParams(window.location.search).get('gas'); } catch (e) { /* 続行 */ }
+  if (gas) {
+    $('#driveUrl').value = gas;
+    $('#autoRefresh').checked = true;
+    loadDrive(true);
+    return;
+  }
   try {
-    const gas = new URLSearchParams(window.location.search).get('gas') || DEFAULT_GAS;
-    if (gas) {
-      $('#driveUrl').value = gas;
-      $('#autoRefresh').checked = true;
-      loadDrive(true);
-    }
-  } catch (e) { /* URL解析に失敗しても起動は続行 */ }
+    const r = await fetch('characters.json', { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const arr = await r.json();
+    addCharacters(arr.map(it => ({
+      id: it.id, name: it.name, district: it.district || '',
+      url: it.file, transparent: true,
+    })));
+    hint('岩国のキャラ 全' + roster.length + '体が住んでいます');
+  } catch (e) {
+    // フォールバック: 焼き込みが読めない環境(file://等)ではGAS→シードの順で
+    $('#driveUrl').value = DEFAULT_GAS;
+    $('#autoRefresh').checked = true;
+    loadDrive(false);
+    addCharacters(SEEDS);
+  }
 })();
 requestAnimationFrame(loop);
 </script>
