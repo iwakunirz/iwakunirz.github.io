@@ -70,6 +70,7 @@ function serveList() {
       const id = f.getId();
       out.push({
         name: displayName(f.getName()),
+        district: districtName(f.getName()),                             // 地区名（生息地の振り分け用）
         url: base + '?img=' + id,                                        // 白抜き用（base64）
         b64: true,
         thumb: 'https://drive.google.com/thumbnail?id=' + id + '&sz=w512', // 失敗時フォールバック
@@ -94,6 +95,13 @@ function serveImage(id) {
     return ContentService.createTextOutput('error: ' + err)
       .setMimeType(ContentService.MimeType.TEXT);
   }
+}
+
+// 「地区_キャラ名_20260708_151704.png」→「地区」
+function districtName(fileName) {
+  const base = fileName.replace(/\.[^.]+$/, '');
+  const parts = base.split('_');
+  return parts.length >= 2 ? parts[0] : '';
 }
 
 // 「地区_キャラ名_20260708_151704.png」→「キャラ名」
