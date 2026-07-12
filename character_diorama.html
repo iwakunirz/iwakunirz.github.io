@@ -1442,10 +1442,11 @@ function loop(now) {
 // ---------- boot ----------
 setScene('kintai');
 addCharacters(SEEDS);
-// URLに ?gas=GASのURL を付けると自動でDrive連携を開始（サイネージ運用向け）
+// Drive連携: 既定でイベント用GASに自動接続（?gas=URL で上書きも可能）
+const DEFAULT_GAS = 'https://script.google.com/macros/s/AKfycbwhwJmMef2jPxrVbstOFCFFWurCTIsv0W6UL-ozaC7xYPlAy5qXlHkyOSjGVM1w35s76A/exec';
 (() => {
   try {
-    const gas = new URLSearchParams(window.location.search).get('gas');
+    const gas = new URLSearchParams(window.location.search).get('gas') || DEFAULT_GAS;
     if (gas) {
       $('#driveUrl').value = gas;
       $('#autoRefresh').checked = true;
