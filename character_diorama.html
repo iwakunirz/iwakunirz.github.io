@@ -101,10 +101,17 @@ body.idle .dock{transform:translateX(-50%) translateY(18px)}
 #mobileTabs .mtRow{display:flex;gap:6px}
 #mobileTabs button{flex:1;font-family:inherit;font-weight:800;font-size:12px;color:#e8f1fb;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:9px 2px;cursor:pointer;white-space:nowrap;overflow:hidden}
 #mobileTabs button.on{background:linear-gradient(#4fa8ff,#2f7fe0);border-color:transparent}
+#mobileTabs button ruby{ruby-align:center}
+#mobileTabs button rt{font-size:8px;font-weight:800;opacity:.85;letter-spacing:-.02em}
+#mobileTabs button .cnt{font-size:11px;opacity:.9;margin-left:2px}
+#tabsClose{flex:0 0 46px !important}
+#tabsOpen{position:absolute;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:4900;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.2);background:rgba(14,24,42,.65);color:#fff;font-size:16px;display:none;cursor:pointer;backdrop-filter:blur(6px)}
+body.tabsHidden #mobileTabs{display:none !important}
 @media (max-width:700px){
   #mobileTabs{display:flex}
   .brand{display:none}
-  .hint{bottom:calc(104px + env(safe-area-inset-bottom));font-size:11px;padding:5px 12px}
+  .hint{bottom:calc(118px + env(safe-area-inset-bottom));font-size:11px;padding:5px 12px}
+  body.tabsHidden #tabsOpen{display:block}
   .dock{display:none !important} /* スマホは下部バー(交流/レース＋4地域)のみ */
   #dockToggle{display:none !important}
   #count{font-size:11px}
@@ -150,16 +157,18 @@ body.idle #dockToggle{opacity:.25}
   <button id="dockToggle" title="操作パネルを表示">⚙️</button>
   <div id="mobileTabs">
     <div class="mtRow">
-      <button data-mode="mingle" class="on">🌳 交流</button>
+      <button data-mode="mingle" class="on">🌳 <ruby>交流<rt>こうりゅう</rt></ruby></button>
       <button data-mode="race">🏁 レース</button>
+      <button id="tabsClose" title="メニューをとじる">▼</button>
     </div>
     <div class="mtRow">
-      <button data-scene="kintai" class="on">錦帯橋</button>
-      <button data-scene="castle">岩国城</button>
-      <button data-scene="yubeach">由宇ビーチ</button>
-      <button data-scene="plaza">広場</button>
+      <button data-scene="kintai" class="on"><ruby>錦帯橋<rt>きんたいきょう</rt></ruby><span class="cnt"></span></button>
+      <button data-scene="castle"><ruby>岩国城<rt>いわくにじょう</rt></ruby><span class="cnt"></span></button>
+      <button data-scene="yubeach"><ruby>由宇<rt>ゆう</rt></ruby>ビーチ<span class="cnt"></span></button>
+      <button data-scene="plaza"><ruby>広場<rt>ひろば</rt></ruby><span class="cnt"></span></button>
     </div>
   </div>
+  <button id="tabsOpen" title="メニューをひらく">▲</button>
   <div class="brand">キャラ箱庭 <span>いわくに</span></div>
   <div class="hint" id="hint">地面タップでごはん🍙 / キャラタップでよろこぶ❤️</div>
 
@@ -518,9 +527,14 @@ const IDLE_EMOJI = ['♪', '😊', '✨', '🎵', '☀️', '❓'];
 function updateCount() { $('#count').textContent = actors.length + '/' + MAX_CHARS + '体・全' + roster.length + '体'; }
 function updateSceneCounts() {
   document.querySelectorAll('#sceneSeg [data-scene], #mobileTabs [data-scene]').forEach(b => {
-    if (!b.dataset.label) b.dataset.label = b.textContent;
     const n = roster.filter(it => it.habitat === b.dataset.scene).length;
-    b.textContent = b.dataset.label + (n ? ' ' + n : '');
+    const cnt = b.querySelector('.cnt');
+    if (cnt) { // モバイルタブ: ルビ付きラベルは残して数だけ更新
+      cnt.textContent = n ? String(n) : '';
+    } else {
+      if (!b.dataset.label) b.dataset.label = b.textContent;
+      b.textContent = b.dataset.label + (n ? ' ' + n : '');
+    }
   });
 }
 function cacheImg(a, url) {
@@ -1018,7 +1032,8 @@ function startPlay() {
 // ---------- tap interaction ----------
 stage.addEventListener('pointerdown', e => {
   wake();
-  if (e.target.closest('.dock') || e.target.closest('#results') || e.target.closest('#dockToggle')) return;
+  if (e.target.closest('.dock') || e.target.closest('#results') || e.target.closest('#dockToggle') ||
+      e.target.closest('#mobileTabs') || e.target.closest('#tabsOpen')) return;
   if (mode === 'race') return;
   const sx = e.clientX, sy = e.clientY;
   const hit = actors.slice().sort((a, b) => b.gy - a.gy).find(a => {
@@ -1390,6 +1405,8 @@ $('#mobileTabs').addEventListener('click', e => {
   const m = e.target.closest('button[data-mode]');
   if (m) setMode(m.dataset.mode);
 });
+$('#tabsClose').addEventListener('click', () => document.body.classList.add('tabsHidden'));
+$('#tabsOpen').addEventListener('click', () => document.body.classList.remove('tabsHidden'));
 $('#styleCut').addEventListener('click', () => {
   document.body.classList.remove('force-frame');
   $('#styleCut').classList.add('on');
