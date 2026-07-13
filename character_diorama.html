@@ -95,6 +95,32 @@ body.race #board{display:block}
 .drive label{font-size:12px;font-weight:800;display:flex;gap:5px;align-items:center;cursor:pointer}
 body.idle .dock,body.idle .hint{opacity:0;pointer-events:none}
 body.idle .dock{transform:translateX(-50%) translateY(18px)}
+
+/* ---------- mobile ---------- */
+#mobileTabs{display:none;position:absolute;left:0;right:0;bottom:0;z-index:4800;background:rgba(14,24,42,.9);backdrop-filter:blur(8px);padding:6px 8px calc(6px + env(safe-area-inset-bottom));gap:6px}
+#mobileTabs button{flex:1;font-family:inherit;font-weight:800;font-size:12px;color:#e8f1fb;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:9px 2px;cursor:pointer;white-space:nowrap;overflow:hidden}
+#mobileTabs button.on{background:linear-gradient(#4fa8ff,#2f7fe0);border-color:transparent}
+@media (max-width:700px){
+  #mobileTabs{display:flex}
+  .brand{display:none}
+  .hint{bottom:calc(64px + env(safe-area-inset-bottom));font-size:11px;padding:5px 12px}
+  .dock{bottom:calc(58px + env(safe-area-inset-bottom));max-height:56vh;overflow:auto;padding:10px;gap:6px;max-width:96vw}
+  .dock button{font-size:12px;padding:6px 10px}
+  #count{font-size:11px}
+  .nametag{font-size:11px;padding:1px 8px}
+  #dockToggle{bottom:calc(66px + env(safe-area-inset-bottom));width:42px;height:42px}
+  #board{padding:6px 9px;min-width:0;border-radius:10px}
+  .brow{font-size:11px;gap:5px;padding:2px 0}
+  .brow img{width:18px;height:18px}
+  .brow b{max-width:70px}
+  #lapHud{top:8px;left:auto;right:8px;transform:none;padding:5px 10px;font-size:11px;gap:6px}
+  #lapBar{width:30vw}
+  #results{padding:14px;font-size:13px}
+  #results h2{font-size:19px}
+}
+@media (max-width:400px){
+  #mobileTabs button{font-size:10.5px}
+}
 #dockToggle{position:absolute;bottom:14px;right:14px;z-index:5001;width:46px;height:46px;border-radius:50%;border:1px solid rgba(255,255,255,.2);background:rgba(14,24,42,.55);color:#fff;font-size:21px;cursor:pointer;display:none;transition:opacity .5s;backdrop-filter:blur(6px)}
 #dockToggle:hover{background:rgba(14,24,42,.8)}
 body.dockHidden .dock{display:none}
@@ -122,6 +148,12 @@ body.idle #dockToggle{opacity:.25}
   <div id="results"></div>
 
   <button id="dockToggle" title="操作パネルを表示">⚙️</button>
+  <div id="mobileTabs">
+    <button data-scene="kintai" class="on">錦帯橋</button>
+    <button data-scene="castle">岩国城</button>
+    <button data-scene="yubeach">由宇ビーチ</button>
+    <button data-scene="plaza">広場</button>
+  </div>
   <div class="brand">キャラ箱庭 <span>いわくに</span></div>
   <div class="hint" id="hint">地面タップでごはん🍙 / キャラタップでよろこぶ❤️</div>
 
@@ -180,9 +212,11 @@ const artEl = $('#art');
 const backdropEl = $('#backdrop');
 
 let SW = window.innerWidth, SH = window.innerHeight;
+let viewFactor = 1; // 画面が狭いほどキャラ等を縮小（スマホ対応）
 function resize() {
   const r = stage.getBoundingClientRect();
   SW = r.width; SH = r.height;
+  viewFactor = clamp(SW / 900, 0.55, 1);
 }
 window.addEventListener('resize', resize);
 resize();
@@ -304,7 +338,7 @@ function setScene(key) {
   backdropEl.style.setProperty('--horizon', s.horizon);
   backdropEl.className = s.cls;
   artEl.innerHTML = s.art;
-  document.querySelectorAll('#sceneSeg [data-scene]').forEach(b => b.classList.toggle('on', b.dataset.scene === key));
+  document.querySelectorAll('#sceneSeg [data-scene], #mobileTabs [data-scene]').forEach(b => b.classList.toggle('on', b.dataset.scene === key));
   // 住民の入れ替え: この地域に住むキャラ（新しい順に最大MAX_CHARS体）
   actors.slice().forEach(removeActor);
   props.slice().forEach(removeProp);
@@ -477,7 +511,7 @@ const IDLE_EMOJI = ['♪', '😊', '✨', '🎵', '☀️', '❓'];
 
 function updateCount() { $('#count').textContent = actors.length + '/' + MAX_CHARS + '体・全' + roster.length + '体'; }
 function updateSceneCounts() {
-  document.querySelectorAll('#sceneSeg [data-scene]').forEach(b => {
+  document.querySelectorAll('#sceneSeg [data-scene], #mobileTabs [data-scene]').forEach(b => {
     if (!b.dataset.label) b.dataset.label = b.textContent;
     const n = roster.filter(it => it.habitat === b.dataset.scene).length;
     b.textContent = b.dataset.label + (n ? ' ' + n : '');
@@ -671,7 +705,7 @@ function place(a) {
   a.el.style.transform = 'translate(' + sx + 'px,' + p.sy + 'px)';
   a.el.style.zIndex = String(Math.round(a.gy * 1000));
   const racing = (mode === 'race' && a.state === 'race');
-  const H = a.baseH * p.scale * (racing ? raceShrink : 1);
+  const H = a.baseH * p.scale * (racing ? raceShrink : 1) * viewFactor;
   a.H = H;
   a.wrap.style.height = H + 'px';
   a.wrap.style.width = (H * a.aspect) + 'px';
@@ -683,7 +717,7 @@ function animateActor(a, dt, now) {
   if (mode === 'mingle') mingleStep(a, dt, now);
   a.moving += (a.movingT - a.moving) * Math.min(1, dt * 8);
   place(a);
-  const scale = a.scale;
+  const scale = a.scale * viewFactor; // 跳ね幅などのpx量は画面サイズにも追従
   let bob = 0, extra = 0, tilt = 0, sqx = 1, sqy = 1;
 
   if (mode === 'race' && a.state === 'race') {
@@ -756,7 +790,7 @@ function spawnEmoji(a, ch) {
   el.textContent = ch;
   el.style.left = a.sx + 'px';
   el.style.top = (a.sy - a.H - 6) + 'px';
-  el.style.fontSize = (18 + 14 * a.scale) + 'px';
+  el.style.fontSize = ((18 + 14 * a.scale) * viewFactor) + 'px';
   el.style.zIndex = String(Math.round(a.gy * 1000) + 2);
   actorsEl.appendChild(el);
   el.addEventListener('animationend', () => el.remove());
@@ -794,7 +828,7 @@ function assignTreat(p) {
 function drawProps() {
   for (const p of props) {
     const pr = project(p.gx, p.gy);
-    p.el.style.transform = 'translate(' + pr.sx + 'px,' + pr.sy + 'px) translate(-50%,-100%) scale(' + pr.scale + ')';
+    p.el.style.transform = 'translate(' + pr.sx + 'px,' + pr.sy + 'px) translate(-50%,-100%) scale(' + (pr.scale * viewFactor) + ')';
     p.el.style.zIndex = String(Math.round(p.gy * 1000) - 1);
   }
 }
@@ -1151,7 +1185,7 @@ function drawRaceProps() {
       p.el.style.zIndex = '1500';
     } else {
       const pr = project(0.5, p.gy);
-      p.el.style.transform = 'translate(' + x + 'px,' + pr.sy + 'px) translate(-50%,-100%) scale(' + pr.scale + ')';
+      p.el.style.transform = 'translate(' + x + 'px,' + pr.sy + 'px) translate(-50%,-100%) scale(' + (pr.scale * viewFactor) + ')';
       p.el.style.zIndex = String(Math.round(p.gy * 1000) - 1);
     }
   }
@@ -1235,7 +1269,7 @@ function updateLeaderUI(now) {
   const leader = order[0];
 
   const crown = $('#crown');
-  crown.style.transform = 'translate(' + leader.sx + 'px,' + (leader.sy - leader.H - 14 * leader.scale) + 'px) translate(-50%,-100%) scale(' + leader.scale + ')';
+  crown.style.transform = 'translate(' + leader.sx + 'px,' + (leader.sy - leader.H - 14 * leader.scale) + 'px) translate(-50%,-100%) scale(' + (leader.scale * viewFactor) + ')';
 
   if (raceOn && lastLeadId !== null && lastLeadId !== leader.id && now - leadCool > 1700 && !leader.finished) {
     callout('先頭交代！ ' + leader.name, '#4fc3f7');
@@ -1344,6 +1378,10 @@ $('#sceneSeg').addEventListener('click', e => {
   const b = e.target.closest('button[data-scene]');
   if (b) setScene(b.dataset.scene);
 });
+$('#mobileTabs').addEventListener('click', e => {
+  const b = e.target.closest('button[data-scene]');
+  if (b) setScene(b.dataset.scene);
+});
 $('#styleCut').addEventListener('click', () => {
   document.body.classList.remove('force-frame');
   $('#styleCut').classList.add('on');
@@ -1440,6 +1478,9 @@ function loop(now) {
 }
 
 // ---------- boot ----------
+if (window.matchMedia && window.matchMedia('(max-width: 700px)').matches) {
+  document.body.classList.add('dockHidden'); // スマホは操作パネルを畳んで開始（⚙で開ける）
+}
 setScene('kintai');
 // キャラは確定済み: サイトに焼き込んだ白抜き済み画像(characters.json + chars/*.webp)を既定で読み込む。
 // ?gas=URL を付けたときだけ従来のDrive(GAS)モードで動く。
@@ -1461,6 +1502,8 @@ const DEFAULT_GAS = 'https://script.google.com/macros/s/AKfycbwhwJmMef2jPxrVbstO
       id: it.id, name: it.name, district: it.district || '',
       url: it.file, transparent: true,
     })));
+    const driveRow = document.querySelector('.drive');
+    if (driveRow) driveRow.style.display = 'none'; // 静的モードではDrive欄は不要
     hint('岩国のキャラ 全' + roster.length + '体が住んでいます');
   } catch (e) {
     // フォールバック: 焼き込みが読めない環境(file://等)ではGAS→シードの順で
